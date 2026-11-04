@@ -1,0 +1,13 @@
+digraph dfd0 {
+  graph [fontname="Arial", fontsize=20, rankdir=LR, ranksep=2.2, labelloc=t, pad=0.35, dpi=200, nodesep=0.45, ranksep=0.9, splines=spline];
+  node  [fontname="Arial", fontsize=12];
+  edge  [fontname="Arial", fontsize=10, color="#2b3a4f", fontcolor="#2b3a4f", arrowsize=0.8];
+  label="DFD nivel 0 (diagrama de contexto) · Sistema de inferencia SEDATI\n ";
+  usuario [shape=box, style="filled", fillcolor="#fde9c9", color="#b7791f", penwidth=2, fontsize=12, label="Usuario del sistema experto\n(Administrador que atiende\nel incidente)"];
+  experto [shape=box, style="filled", fillcolor="#fde9c9", color="#b7791f", penwidth=2, fontsize=12, label="Experto humano /\nadministrador del conocimiento"];
+  sis [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" STYLE="ROUNDED" COLOR="#1f6feb" BGCOLOR="#e7f0fe"><TR><TD BGCOLOR="#1f6feb"><FONT COLOR="white"><B>0</B></FONT></TD></TR><TR><TD>Sistema de inferencia<BR/>SEDATI</TD></TR></TABLE>>];
+  usuario -> sis [label="datos del equipo\nsíntomas iniciales\nrespuestas graduadas\ncorrecciones"];
+  sis -> usuario [label="preguntas y su justificación\n5 hipótesis con peso probabilístico\nexplicación y acción recomendada\ninforme de la consulta"];
+  experto -> sis [label="hipótesis, evidencias y reglas\nIf / And / Then con factor de certeza\nprobabilidades previas"];
+  {rank=same; usuario; experto;}
+}

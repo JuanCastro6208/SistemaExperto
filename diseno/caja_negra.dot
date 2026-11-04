@@ -1,0 +1,32 @@
+digraph caja_negra {
+  graph [rankdir=LR, fontname="Arial", fontsize=20, labelloc=t, label="Diagrama de caja negra · Sistema de inferencia SEDATI\n ",
+         nodesep=0.25, ranksep=0.9, pad=0.3, dpi=200, splines=spline];
+  node [fontname="Arial", fontsize=12];
+  edge [color="#2b3a4f", penwidth=1.4, arrowsize=0.8];
+  subgraph cluster_e { label="ENTRADAS"; fontsize=14; fontcolor="#1f6feb"; style="rounded,dashed"; color="#9db8e8";
+    e0 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Síntomas iniciales</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">los que el usuario observa y marca al iniciar</FONT></TD></TR></TABLE>>];
+    e1 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Respuestas graduadas</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">Sí · Probablemente sí · No sé · Probablemente no · No<BR/>(certeza de la observación, de −1 a +1)</FONT></TD></TR></TABLE>>];
+    e2 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Correcciones de respuestas</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">cambiar una respuesta ya dada</FONT></TD></TR></TABLE>>];
+    e3 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Datos del equipo</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">código de inventario, ubicación, descripción</FONT></TD></TR></TABLE>>];
+    e4 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Parámetros del motor</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">β, umbral de probabilidad, ganancia mínima,<BR/>máximo de preguntas, número de hipótesis (5)</FONT></TD></TR></TABLE>>];
+  }
+  motor [shape=box, style="filled", fillcolor="#151c25", fontcolor="white", color="#151c25", width=3.4, height=4.2,
+         label=<<FONT POINT-SIZE="22"><B>SISTEMA DE<BR/>INFERENCIA<BR/>SEDATI</B></FONT><BR/><BR/><FONT POINT-SIZE="11">motor basado en gránulos de conocimiento<BR/>(no se muestra su funcionamiento interno)</FONT>>];
+  subgraph cluster_s { label="SALIDAS"; fontsize=14; fontcolor="#1e8e5a"; style="rounded,dashed"; color="#9ed3b5";
+    s0 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Siguiente pregunta</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">la observación con mayor ganancia de información<BR/>y su justificación («¿por qué pregunta esto?»)</FONT></TD></TR></TABLE>>];
+    s1 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>5 hipótesis con su peso probabilístico</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">ordenadas, con su factor de certeza combinado</FONT></TD></TR></TABLE>>];
+    s2 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Explicación del razonamiento</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">reglas If / And / Then que sostienen cada hipótesis<BR/>y el estado de cada condición («¿cómo?»)</FONT></TD></TR></TABLE>>];
+    s3 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Acción recomendada</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">con advertencia si hay riesgo de pérdida de datos</FONT></TD></TR></TABLE>>];
+    s4 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Registro de la consulta e informe</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">respuestas y resultado guardados; informe exportable</FONT></TD></TR></TABLE>>];
+  }
+  e0 -> motor;
+  e1 -> motor;
+  e2 -> motor;
+  e3 -> motor;
+  e4 -> motor;
+  motor -> s0;
+  motor -> s1;
+  motor -> s2;
+  motor -> s3;
+  motor -> s4;
+}

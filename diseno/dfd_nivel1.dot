@@ -1,0 +1,52 @@
+digraph dfd1 {
+  graph [fontname="Arial", fontsize=20, rankdir=TB, labelloc=t, pad=0.35, dpi=200, nodesep=0.6, ranksep=0.75, splines=spline];
+  node  [fontname="Arial", fontsize=12];
+  edge  [fontname="Arial", fontsize=10, color="#2b3a4f", fontcolor="#2b3a4f", arrowsize=0.8];
+  label="DFD nivel 1 · Sistema de inferencia SEDATI\n ";
+  usuario [shape=box, style="filled", fillcolor="#fde9c9", color="#b7791f", penwidth=2, fontsize=12, label="Usuario del sistema experto\n(Administrador)"];
+  usuario2 [shape=box, style="filled", fillcolor="#fde9c9", color="#b7791f", penwidth=2, fontsize=12, label="Usuario del sistema experto\n(Administrador)"];
+  experto [shape=box, style="filled", fillcolor="#fde9c9", color="#b7791f", penwidth=2, fontsize=12, label="Experto humano /\nadministrador del conocimiento"];
+  p1 [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" STYLE="ROUNDED" COLOR="#1f6feb" BGCOLOR="#e7f0fe"><TR><TD BGCOLOR="#1f6feb"><FONT COLOR="white"><B>1.0</B></FONT></TD></TR><TR><TD>Registrar consulta<BR/>y síntomas iniciales</TD></TR></TABLE>>];
+  p2 [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" STYLE="ROUNDED" COLOR="#1f6feb" BGCOLOR="#e7f0fe"><TR><TD BGCOLOR="#1f6feb"><FONT COLOR="white"><B>2.0</B></FONT></TD></TR><TR><TD>Consultar gránulos<BR/>(encadenamiento<BR/>hacia adelante)</TD></TR></TABLE>>];
+  p3 [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" STYLE="ROUNDED" COLOR="#1f6feb" BGCOLOR="#e7f0fe"><TR><TD BGCOLOR="#1f6feb"><FONT COLOR="white"><B>3.0</B></FONT></TD></TR><TR><TD>Registrar respuesta y<BR/>deducir observaciones</TD></TR></TABLE>>];
+  p4 [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" STYLE="ROUNDED" COLOR="#1f6feb" BGCOLOR="#e7f0fe"><TR><TD BGCOLOR="#1f6feb"><FONT COLOR="white"><B>4.0</B></FONT></TD></TR><TR><TD>Evaluar gránulos y<BR/>calcular peso probabilístico</TD></TR></TABLE>>];
+  p5 [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" STYLE="ROUNDED" COLOR="#1f6feb" BGCOLOR="#e7f0fe"><TR><TD BGCOLOR="#1f6feb"><FONT COLOR="white"><B>5.0</B></FONT></TD></TR><TR><TD>Seleccionar siguiente<BR/>pregunta (ganancia<BR/>de información)</TD></TR></TABLE>>];
+  p6 [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" STYLE="ROUNDED" COLOR="#1f6feb" BGCOLOR="#e7f0fe"><TR><TD BGCOLOR="#1f6feb"><FONT COLOR="white"><B>6.0</B></FONT></TD></TR><TR><TD>Generar diagnóstico<BR/>y explicación</TD></TR></TABLE>>];
+  p7 [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" STYLE="ROUNDED" COLOR="#1f6feb" BGCOLOR="#e7f0fe"><TR><TD BGCOLOR="#1f6feb"><FONT COLOR="white"><B>7.0</B></FONT></TD></TR><TR><TD>Mantener base de<BR/>conocimiento</TD></TR></TABLE>>];
+  d1 [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#5b6676"><TR><TD SIDES="LTB" BGCOLOR="#eef1f5"><B>D1</B></TD><TD SIDES="TB" BGCOLOR="#f7f9fb" ALIGN="LEFT">hipotesis</TD></TR></TABLE>>];
+  d2 [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#5b6676"><TR><TD SIDES="LTB" BGCOLOR="#eef1f5"><B>D2</B></TD><TD SIDES="TB" BGCOLOR="#f7f9fb" ALIGN="LEFT">evidencia</TD></TR></TABLE>>];
+  d3 [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#5b6676"><TR><TD SIDES="LTB" BGCOLOR="#eef1f5"><B>D3</B></TD><TD SIDES="TB" BGCOLOR="#f7f9fb" ALIGN="LEFT">granulo</TD></TR></TABLE>>];
+  d4 [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#5b6676"><TR><TD SIDES="LTB" BGCOLOR="#eef1f5"><B>D4</B></TD><TD SIDES="TB" BGCOLOR="#f7f9fb" ALIGN="LEFT">memoria de trabajo (temporal)</TD></TR></TABLE>>];
+  d5 [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#5b6676"><TR><TD SIDES="LTB" BGCOLOR="#eef1f5"><B>D5</B></TD><TD SIDES="TB" BGCOLOR="#f7f9fb" ALIGN="LEFT">consulta</TD></TR></TABLE>>];
+  d6 [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#5b6676"><TR><TD SIDES="LTB" BGCOLOR="#eef1f5"><B>D6</B></TD><TD SIDES="TB" BGCOLOR="#f7f9fb" ALIGN="LEFT">consulta_respuesta</TD></TR></TABLE>>];
+  d7 [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#5b6676"><TR><TD SIDES="LTB" BGCOLOR="#eef1f5"><B>D7</B></TD><TD SIDES="TB" BGCOLOR="#f7f9fb" ALIGN="LEFT">escala_respuesta</TD></TR></TABLE>>];
+  d8 [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#5b6676"><TR><TD SIDES="LTB" BGCOLOR="#eef1f5"><B>D8</B></TD><TD SIDES="TB" BGCOLOR="#f7f9fb" ALIGN="LEFT">consulta_hipotesis</TD></TR></TABLE>>];
+  usuario -> p1 [label="datos del equipo\nsíntomas iniciales"];
+  p1 -> d5 [label="consulta nueva"];
+  p1 -> d6 [label="síntomas (Sí = +1)"];
+  p1 -> p2 [label="evidencias afirmadas"];
+  d3 -> p2 [label="reglas que contienen\nla evidencia / reglas\nde la categoría"];
+  d2 -> p2 [label="evidencias de la\nmisma observación"];
+  d1 -> p2 [label="hipótesis y\nprobabilidad previa"];
+  p2 -> d4 [label="gránulos e hipótesis\ndel diferencial"];
+  usuario -> p3 [label="respuesta graduada\no corrección"];
+  d7 -> p3 [label="valor de la respuesta\n(−1 … +1)"];
+  p3 -> d6 [label="respuesta"];
+  p3 -> d4 [label="hecho y\nobservaciones deducidas"];
+  p3 -> p2 [label="evidencia afirmada\n(nueva consulta granular)", style=dashed];
+  d4 -> p4 [label="hechos y gránulos"];
+  p4 -> p5 [label="distribución de\nprobabilidad"];
+  d4 -> p5 [label="observaciones\npendientes"];
+  p5 -> usuario2 [label="siguiente pregunta\ny su justificación"];
+  p4 -> p6 [label="hipótesis ponderadas\n(peso y FC)"];
+  p6 -> usuario2 [label="5 hipótesis con peso,\nreglas, acción recomendada"];
+  p6 -> d8 [label="resultado (top 5)"];
+  p6 -> d5 [label="cierre de la consulta"];
+  experto -> p7 [label="conocimiento del experto"];
+  p7 -> d1 [label="hipótesis"];
+  p7 -> d2 [label="evidencias"];
+  p7 -> d3 [label="reglas (gránulos)"];
+  {rank=same; usuario; experto;}
+  {rank=same; d1; d2; d3;}
+  {rank=same; usuario2;}
+}

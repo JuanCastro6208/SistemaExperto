@@ -1,0 +1,3 @@
+customtkinter>=5.2
+matplotlib>=3.8
+pymysql>=1.1        # solo se necesita si config.ini usa motor = mysql

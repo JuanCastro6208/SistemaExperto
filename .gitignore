@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# Paquete de Lambda generado (python aws/construir_paquete_lambda.py)
+dist/
+
+# Base SQLite local: se crea sola a partir de los scripts de bd/
+*.db
+
+# Credenciales y documentos locales del despliegue
+*.local.txt
+aws/*.md
