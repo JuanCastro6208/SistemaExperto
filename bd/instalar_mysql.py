@@ -61,7 +61,14 @@ def ejecutar_script(cx, ruta, mostrar=True):
         if base:
             cur.execute(f'USE {base}')
         for s in sentencias(ruta.read_text(encoding='utf-8')):
-            cur.execute(s)
+            try:
+                cur.execute(s)
+            except Exception as e:  # noqa: BLE001
+                # En Amazon RDS la cuenta maestra puede no tener ROLE_ADMIN para dar un rol a otro rol (error 1227).
+                if ruta.name == '05_roles_permisos.sql' and getattr(e, 'args', [0])[0] == 1227:
+                    print(f'  ! sin permiso para: {s.splitlines()[0][:70]} (se otorgará directo al usuario de servicio)')
+                    continue
+                raise
             while cur.nextset():
                 pass
     if mostrar:
@@ -74,9 +81,14 @@ def crear_usuario_servicio(cx, usuario, contrasena):
     with cx.cursor() as cur:
         cur.execute(f"CREATE USER IF NOT EXISTS '{usuario}'@'%%' IDENTIFIED BY %s", (contrasena,))
         cur.execute(f"ALTER USER '{usuario}'@'%%' IDENTIFIED BY %s", (contrasena,))
-        cur.execute(f"GRANT sedati_aplicacion TO '{usuario}'@'%'")
-        cur.execute(f"SET DEFAULT ROLE sedati_aplicacion TO '{usuario}'@'%'")
-    print(f"  ✔ usuario de servicio '{usuario}' con el rol sedati_aplicacion")
+        try:
+            cur.execute(f"GRANT sedati_aplicacion TO '{usuario}'@'%'")
+            cur.execute(f"SET DEFAULT ROLE sedati_aplicacion TO '{usuario}'@'%'")
+            print(f"  ✔ usuario de servicio '{usuario}' con el rol sedati_aplicacion")
+        except Exception:  # noqa: BLE001 - p. ej. RDS sin ROLE_ADMIN: los mismos permisos, otorgados directamente
+            cur.execute(f"GRANT SELECT, INSERT, UPDATE ON sedati_trx.* TO '{usuario}'@'%'")
+            cur.execute(f"GRANT SELECT, INSERT, UPDATE, EXECUTE ON sedati_kb.* TO '{usuario}'@'%'")
+            print(f"  ✔ usuario de servicio '{usuario}' con SELECT, INSERT y UPDATE (sin DELETE) en las dos bases")
 
 
 def conectar(host, puerto, usuario, contrasena, base=None):
