@@ -1,0 +1,22 @@
+digraph "rama_F2" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="F2 · No resuelve nombres de dominio\n(P-17)", shape=box, style="rounded,filled,bold", fillcolor="#E0F7FA", color="#0F8B8D", fontsize=11];
+  n1 [label="el equipo no resuelve\nnombres de dominio\n[E-098]"];
+  raiz -> n1 [label="If"];
+  n2 [label="el servidor DNS\nconfigurado no responde a\nla prueba de comunicación\n[E-099]"];
+  n1 -> n2 [label="And"];
+  h_R55 [label="R-55 · FC 85 %\nla falla está en la\ndisponibilidad del servidor\nDNS", fillcolor="#E0F7FA", color="#0F8B8D", shape=note, style="filled"];
+  n2 -> h_R55 [label="Then", color="#0F8B8D"];
+  n3 [label="la resolución funciona al\nconfigurar otro servidor\nDNS\n[E-100]"];
+  n1 -> n3 [label="And"];
+  h_R56 [label="R-56 · FC 90 %\nla falla está en la\nconfiguración DNS del\nadaptador", fillcolor="#E0F7FA", color="#0F8B8D", shape=note, style="filled"];
+  n3 -> h_R56 [label="Then", color="#0F8B8D"];
+  n4 [label="el equipo resuelve nombres\nexternos\n[E-101]"];
+  raiz -> n4 [label="If"];
+  n5 [label="no resuelve nombres\ninternos del dominio\n[E-102]"];
+  n4 -> n5 [label="And"];
+  h_R57 [label="R-57 · FC 80 %\nla falla está en el sufijo DNS\no en la pertenencia del equipo\nal dominio", fillcolor="#E0F7FA", color="#0F8B8D", shape=note, style="filled"];
+  n5 -> h_R57 [label="Then", color="#0F8B8D"];
+}

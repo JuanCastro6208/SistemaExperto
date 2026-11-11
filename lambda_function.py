@@ -5,18 +5,21 @@ Handler de Lambda:  lambda_function.lambda_handler
 Variables de entorno de la función:
     SEDATI_MOTOR_BD=mysql
     SEDATI_MYSQL_HOST=<punto de enlace de Amazon RDS>
-    SEDATI_MYSQL_USUARIO, SEDATI_MYSQL_CONTRASENA, SEDATI_MYSQL_BASE=sedati
+    SEDATI_MYSQL_USUARIO, SEDATI_MYSQL_CONTRASENA
+    SEDATI_MYSQL_BASE_KB=sedati_kb, SEDATI_MYSQL_BASE_TRX=sedati_trx
+    SEDATI_SECRETO=<clave aleatoria larga para firmar las sesiones>
     SEDATI_CORS_ORIGEN=<URL del sitio web> (opcional; por defecto *)
 
-Sin SEDATI_MOTOR_BD=mysql usa SQLite en /tmp: la base de conocimiento se crea al arrancar a partir de
-los scripts de bd/ (sirve para una demostración sin RDS, pero el historial se pierde al reciclar la función).
+Sin SEDATI_MOTOR_BD=mysql usa SQLite en /tmp: las dos bases se crean al arrancar a partir de los scripts
+de bd/ (sirve para una demostración sin RDS, pero lo registrado se pierde al reciclar la función).
 """
 import base64
 import json
 import os
 import traceback
 
-os.environ.setdefault('SEDATI_RUTA_SQLITE', '/tmp/sedati.db')   # el paquete de Lambda es de solo lectura
+os.environ.setdefault('SEDATI_RUTA_SQLITE_KB', '/tmp/sedati_kb.db')    # el paquete de Lambda es de solo lectura
+os.environ.setdefault('SEDATI_RUTA_SQLITE_TRX', '/tmp/sedati_trx.db')
 
 from sedati.servicio import ApiSEDATI  # noqa: E402
 
@@ -28,7 +31,7 @@ def _cabeceras():
         'Content-Type': 'application/json; charset=utf-8',
         'Access-Control-Allow-Origin': os.environ.get('SEDATI_CORS_ORIGEN', '*'),
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     }
 
 
@@ -54,7 +57,9 @@ def lambda_handler(event, context):
             return _respuesta(400, {'error': 'El cuerpo de la petición no es JSON válido.'})
         if _api is None:
             _api = ApiSEDATI()
-        estado, datos = _api.atender(metodo, ruta, cuerpo)
+        ip = http.get('sourceIp') or ((event.get('requestContext') or {}).get('identity') or {}).get('sourceIp')
+        estado, datos = _api.atender(metodo, ruta, cuerpo, event.get('headers') or {},
+                                     event.get('queryStringParameters') or {}, ip)
         return _respuesta(estado, datos)
     except Exception as error:  # noqa: BLE001 - cualquier fallo se registra en CloudWatch y se informa
         traceback.print_exc()

@@ -1,0 +1,26 @@
+digraph "rama_G4" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="G4 · Antivirus presenta errores\n(P-23)", shape=box, style="rounded,filled,bold", fillcolor="#FFF0E0", color="#D9822B", fontsize=11];
+  n1 [label="el antivirus presenta\nerrores\n[E-139]"];
+  raiz -> n1 [label="If"];
+  n2 [label="el servicio no inicia de\nforma manual\n[E-140]"];
+  n1 -> n2 [label="And"];
+  h_R81 [label="R-81 · FC 80 %\nla falla está en la\ninstalación de la herramienta", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n2 -> h_R81 [label="Then", color="#D9822B"];
+  n3 [label="el equipo tiene instalada\notra herramienta de\nprotección\n[E-141]"];
+  n1 -> n3 [label="And"];
+  h_R82 [label="R-82 · FC 85 %\nla falla está en el conflicto\nentre herramientas de\nprotección", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n3 -> h_R82 [label="Then", color="#D9822B"];
+  n4 [label="el antivirus no descarga\nactualizaciones\n[E-142]"];
+  raiz -> n4 [label="If"];
+  n5 [label="la licencia se encuentra\nvencida\n[E-143]"];
+  n4 -> n5 [label="And"];
+  h_R83 [label="R-83 · FC 95 %\nla falla está en la vigencia\nde la licencia", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n5 -> h_R83 [label="Then", color="#D9822B"];
+  n6 [label="el equipo no alcanza el\nservidor de administración\n[E-144]"];
+  n4 -> n6 [label="And"];
+  h_R84 [label="R-84 · FC 85 %\nla falla está en la\nconectividad con el servidor\nde actualizaciones", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n6 -> h_R84 [label="Then", color="#D9822B"];
+}

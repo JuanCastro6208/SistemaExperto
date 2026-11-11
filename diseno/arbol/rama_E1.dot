@@ -1,0 +1,28 @@
+digraph "rama_E1" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="E1 · Teclado o mouse no responde\n(P-10, P-11)", shape=box, style="rounded,filled,bold", fillcolor="#F3E8FD", color="#8E6CEF", fontsize=11];
+  n1 [label="el teclado o el mouse no\nresponde\n[E-067]"];
+  raiz -> n1 [label="If"];
+  n2 [label="el dispositivo funciona en\notro equipo\n[E-068]"];
+  n1 -> n2 [label="And"];
+  n3 [label="el dispositivo funciona en\notro puerto del equipo\natendido\n[E-069]"];
+  n2 -> n3 [label="And"];
+  h_R37 [label="R-37 · FC 85 %\nla falla está en el puerto USB\nutilizado", fillcolor="#F3E8FD", color="#8E6CEF", shape=note, style="filled"];
+  n3 -> h_R37 [label="Then", color="#8E6CEF"];
+  n4 [label="ningún puerto del equipo\natendido lo reconoce\n[E-070]"];
+  n2 -> n4 [label="And"];
+  h_R38 [label="R-38 · FC 75 %\nla falla está en el\ncontrolador del bus USB", fillcolor="#F3E8FD", color="#8E6CEF", shape=note, style="filled"];
+  n4 -> h_R38 [label="Then", color="#8E6CEF"];
+  n5 [label="el dispositivo tampoco\nfunciona en otro equipo\n[E-071]"];
+  n1 -> n5 [label="And"];
+  h_R39 [label="R-39 · FC 90 %\nla falla está en el periférico", fillcolor="#F3E8FD", color="#8E6CEF", shape=note, style="filled"];
+  n5 -> h_R39 [label="Then", color="#8E6CEF"];
+  n6 [label="el periférico inalámbrico\nno responde\n[E-072]"];
+  raiz -> n6 [label="If"];
+  n7 [label="el reemplazo de las pilas\nno restablece la operación\n[E-073]"];
+  n6 -> n7 [label="And"];
+  h_R40 [label="R-40 · FC 70 %\nla falla está en el receptor\ninalámbrico o en el\ndispositivo", fillcolor="#F3E8FD", color="#8E6CEF", shape=note, style="filled"];
+  n7 -> h_R40 [label="Then", color="#8E6CEF"];
+}

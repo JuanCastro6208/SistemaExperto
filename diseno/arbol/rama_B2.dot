@@ -1,0 +1,24 @@
+digraph "rama_B2" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="B2 · Imagen distorsionada\n(P-09)", shape=box, style="rounded,filled,bold", fillcolor="#E6F4EA", color="#1E8E5A", fontsize=11];
+  n1 [label="la pantalla presenta\nlíneas o artefactos\n[E-028]"];
+  raiz -> n1 [label="If"];
+  n2 [label="la distorsión desaparece\nal cambiar el cable de\nvideo\n[E-029]"];
+  n1 -> n2 [label="And"];
+  h_R15 [label="R-15 · FC 85 %\nla falla está en el cable de\nvideo", fillcolor="#E6F4EA", color="#1E8E5A", shape=note, style="filled"];
+  n2 -> h_R15 [label="Then", color="#1E8E5A"];
+  n3 [label="la distorsión persiste con\notro cable y otro monitor\n[E-030]"];
+  n1 -> n3 [label="And"];
+  n4 [label="la tarjeta gráfica\npresenta temperatura\nelevada\n[E-031]"];
+  n3 -> n4 [label="And"];
+  h_R16 [label="R-16 · FC 80 %\nla falla está en la tarjeta\ngráfica", fillcolor="#E6F4EA", color="#1E8E5A", shape=note, style="filled"];
+  n4 -> h_R16 [label="Then", color="#1E8E5A"];
+  n5 [label="la imagen se observa\nborrosa o mal ajustada\n[E-032]"];
+  raiz -> n5 [label="If"];
+  n6 [label="la resolución configurada\nes distinta a la\nresolución nativa del\nmonitor\n[E-033]"];
+  n5 -> n6 [label="And"];
+  h_R17 [label="R-17 · FC 90 %\nla falla está en la\nconfiguración de video o en el\ncontrolador gráfico", fillcolor="#E6F4EA", color="#1E8E5A", shape=note, style="filled"];
+  n6 -> h_R17 [label="Then", color="#1E8E5A"];
+}

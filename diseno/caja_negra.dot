@@ -1,32 +1,29 @@
 digraph caja_negra {
-  graph [rankdir=LR, fontname="Arial", fontsize=20, labelloc=t, label="Diagrama de caja negra · Sistema de inferencia SEDATI\n ",
-         nodesep=0.25, ranksep=0.9, pad=0.3, dpi=200, splines=spline];
-  node [fontname="Arial", fontsize=12];
-  edge [color="#2b3a4f", penwidth=1.4, arrowsize=0.8];
+  graph [rankdir=LR, fontname="DejaVu Sans", fontsize=20, labelloc=t, label="Diagrama de caja negra · SEDATI\n ",
+         nodesep=0.22, ranksep=0.9, pad=0.3, dpi=170, splines=spline];
+  node [fontname="DejaVu Sans", fontsize=12];
+  edge [color="#2b3a4f", penwidth=1.3, arrowsize=0.8];
+
   subgraph cluster_e { label="ENTRADAS"; fontsize=14; fontcolor="#1f6feb"; style="rounded,dashed"; color="#9db8e8";
-    e0 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Síntomas iniciales</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">los que el usuario observa y marca al iniciar</FONT></TD></TR></TABLE>>];
-    e1 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Respuestas graduadas</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">Sí · Probablemente sí · No sé · Probablemente no · No<BR/>(certeza de la observación, de −1 a +1)</FONT></TD></TR></TABLE>>];
-    e2 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Correcciones de respuestas</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">cambiar una respuesta ya dada</FONT></TD></TR></TABLE>>];
-    e3 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Datos del equipo</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">código de inventario, ubicación, descripción</FONT></TD></TR></TABLE>>];
-    e4 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Parámetros del motor</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">β, umbral de probabilidad, ganancia mínima,<BR/>máximo de preguntas, número de hipótesis (5)</FONT></TD></TR></TABLE>>];
+    e0 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Credenciales</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">correo y contraseña de Solicitante o Administrador</FONT></TD></TR></TABLE>>];
+    e1 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Reporte del incidente</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">equipo (inventario, tipo, marca, modelo), ubicación<BR/>y descripción de la falla</FONT></TD></TR></TABLE>>];
+    e2 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Datos de la cita</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">fecha, hora, duración y lugar; reprogramación o cancelación</FONT></TD></TR></TABLE>>];
+    e3 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Síntomas y respuestas graduadas</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">Sí · Probablemente sí · No sé · Probablemente no · No<BR/>(certeza de cada observación, de −1 a +1)</FONT></TD></TR></TABLE>>];
+    e4 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Decisiones del administrador</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">confirmar o descartar hipótesis, solución aplicada,<BR/>tiempo y resultado, motivo y destino del escalamiento</FONT></TD></TR></TABLE>>];
+    e5 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Conocimiento del experto humano</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">hipótesis, evidencias y gránulos If / And / Then<BR/>con factor de certeza (los carga el administrador)</FONT></TD></TR></TABLE>>];
+    e6 [shape=box, style="rounded,filled", fillcolor="#e7f0fe", color="#1f6feb", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Datos de las cuentas</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">documento, nombre, correo, dependencia y rol</FONT></TD></TR></TABLE>>];
   }
-  motor [shape=box, style="filled", fillcolor="#151c25", fontcolor="white", color="#151c25", width=3.4, height=4.2,
-         label=<<FONT POINT-SIZE="22"><B>SISTEMA DE<BR/>INFERENCIA<BR/>SEDATI</B></FONT><BR/><BR/><FONT POINT-SIZE="11">motor basado en gránulos de conocimiento<BR/>(no se muestra su funcionamiento interno)</FONT>>];
+  sis [shape=box, style="filled", fillcolor="#151c25", fontcolor="white", color="#151c25", width=3.2, height=5.2,
+       label=<<FONT POINT-SIZE="24"><B>SEDATI</B></FONT><BR/><BR/><FONT POINT-SIZE="12">sistema experto para el diagnóstico<BR/>y la atención de incidentes<BR/>de cómputo y redes</FONT><BR/><BR/><FONT POINT-SIZE="10" COLOR="#9aa6b8">(no se muestra su funcionamiento interno)</FONT>>];
   subgraph cluster_s { label="SALIDAS"; fontsize=14; fontcolor="#1e8e5a"; style="rounded,dashed"; color="#9ed3b5";
-    s0 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Siguiente pregunta</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">la observación con mayor ganancia de información<BR/>y su justificación («¿por qué pregunta esto?»)</FONT></TD></TR></TABLE>>];
-    s1 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>5 hipótesis con su peso probabilístico</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">ordenadas, con su factor de certeza combinado</FONT></TD></TR></TABLE>>];
-    s2 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Explicación del razonamiento</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">reglas If / And / Then que sostienen cada hipótesis<BR/>y el estado de cada condición («¿cómo?»)</FONT></TD></TR></TABLE>>];
-    s3 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Acción recomendada</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">con advertencia si hay riesgo de pérdida de datos</FONT></TD></TR></TABLE>>];
-    s4 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Registro de la consulta e informe</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">respuestas y resultado guardados; informe exportable</FONT></TD></TR></TABLE>>];
+    s0 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Sesión y menú según el rol</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">o rechazo del ingreso; bloqueo tras cinco intentos</FONT></TD></TR></TABLE>>];
+    s1 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Incidente y su estado</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">consecutivo INC-AAAA-NNNNNN, responsable, citas<BR/>sin solapes e historial de estados</FONT></TD></TR></TABLE>>];
+    s2 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Siguiente pregunta y su justificación</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">la observación que más reduce la incertidumbre</FONT></TD></TR></TABLE>>];
+    s3 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Diagnóstico explicado</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">5 hipótesis con peso probabilístico, regla If / And / Then<BR/>que las sostiene y acción recomendada (con advertencia<BR/>si hay riesgo de pérdida de datos)</FONT></TD></TR></TABLE>>];
+    s4 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Cierre o escalamiento</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">solución registrada; nueva ronda sin las hipótesis descartadas</FONT></TD></TR></TABLE>>];
+    s5 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Historial, indicadores y reportes</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">historial por equipo, indicadores, listado CSV, informe</FONT></TD></TR></TABLE>>];
+    s6 [shape=box, style="rounded,filled", fillcolor="#e6f5ec", color="#1e8e5a", label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><B>Base de conocimiento actualizada</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#4a5565">versión de cada gránulo y auditoría de los cambios</FONT></TD></TR></TABLE>>];
   }
-  e0 -> motor;
-  e1 -> motor;
-  e2 -> motor;
-  e3 -> motor;
-  e4 -> motor;
-  motor -> s0;
-  motor -> s1;
-  motor -> s2;
-  motor -> s3;
-  motor -> s4;
+  e0 -> sis; e1 -> sis; e2 -> sis; e3 -> sis; e4 -> sis; e5 -> sis; e6 -> sis;
+  sis -> s0; sis -> s1; sis -> s2; sis -> s3; sis -> s4; sis -> s5; sis -> s6;
 }

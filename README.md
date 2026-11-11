@@ -1,284 +1,190 @@
-# SEDATI · Sistema de inferencia
+# SEDATI · Sistema experto para el diagnóstico y la atención de incidentes de cómputo y redes
 
-Sistema experto para el diagnóstico y asistencia técnica de incidentes en equipos de cómputo y redes.
-El motor identifica las **5 hipótesis más probables con su peso probabilístico** a partir de las respuestas
-del usuario, mediante **consultas sucesivas y granulares** a la base de conocimiento. No es un sistema de
-condicionales: el código no contiene ningún árbol `if` del dominio, todo el conocimiento está en la tabla `granulo`.
+Aplicación web con dos roles, **Solicitante** y **Administrador**:
 
-## Cómo usarlo
+- **El solicitante** reporta la falla de su equipo, sigue el estado de su incidente y programa, reprograma o cancela la
+  cita de atención.
+- **El administrador**:
+  - toma el incidente;
+  - lo diagnostica con el **motor de inferencia**, que usa 88 reglas If / And / Then, 38 hipótesis y entrega las
+    **5 causas más probables con su peso probabilístico**;
+  - confirma o descarta hipótesis y registra la solución. Si la solución no funciona, ejecuta otra ronda sin las
+    hipótesis descartadas. También puede escalar el incidente;
+  - consulta el historial por equipo y los indicadores;
+  - administra las cuentas y la base de conocimiento.
 
-### 1. Requisitos
+El motor no es un árbol de `if` en el código: todo el conocimiento está en la base de conocimiento (`sedati_kb`), y el
+motor la consulta de forma **granular** (solo los gránulos que necesita en cada paso).
 
-- **Python 3.10 o superior**, con Tkinter. Viene incluido en el instalador de python.org para Windows. En Linux:
-  `sudo apt install python3-tk`.
-- **Git**, para descargar el proyecto.
-- Opcional: **MySQL 8**. Por defecto el sistema usa SQLite, que no requiere instalar nada.
+## 1. Ejecutarlo en su equipo (5 minutos)
 
-### 2. Descargar e instalar
+Requisitos: **Python 3.10 o superior**. No hace falta instalar ninguna base de datos: por defecto usa SQLite.
 
 ```bash
 git clone https://github.com/JuanCastro6208/SistemaExperto.git
 cd SistemaExperto
-python -m venv .venv                   # opcional: entorno virtual
-.venv\Scripts\activate                 # Windows   (Linux/macOS: source .venv/bin/activate)
 pip install -r requirements.txt
+python servidor_web.py
 ```
 
-La primera vez que se ejecuta, la base de conocimiento SQLite (`bd/sedati.db`) se crea sola a partir de los scripts de
-`bd/`.
+Abra **<http://127.0.0.1:8000>** e ingrese con una cuenta de demostración. Todas tienen la contraseña `Sedati2026*`:
 
-### 3. Opción A · Aplicación de escritorio
-
-```bash
-python main.py
-```
-
-### 4. Opción B · Interfaz web en su equipo
-
-```bash
-python servidor_web.py                 # o: python servidor_web.py --puerto 9000
-```
-
-Abra <http://localhost:8000> en el navegador. Arriba a la derecha debe decir **«En línea · SQLite · sedati.db»**.
-Detenga el servidor con `Ctrl+C`.
-
-### 5. Hacer un diagnóstico
-
-Funciona igual en las dos interfaces:
-
-1. **Nuevo diagnóstico.** Escriba los datos del equipo (opcionales) y marque uno o más síntomas, por ejemplo *«La
-   impresora no imprime»*. Luego elija **Iniciar diagnóstico**.
-2. **Responda las preguntas** con su grado de certeza: *Sí, con certeza*, *Probablemente sí*, *No lo sé*,
-   *Probablemente no* o *No, con certeza*. En la web también puede responder con las teclas **1** a **5**.
-   - **¿Por qué pregunta esto?** explica qué reglas usan esa observación.
-   - A la derecha se ven el top 5 en vivo, la evolución de las probabilidades y las consultas que el motor hizo a la base.
-   - **Deshacer respuesta** corrige la última respuesta.
-3. Cuando el motor recomienda concluir, o cuando usted quiera, elija **Ver diagnóstico**. Verá:
-   - las **5 hipótesis más probables** con su peso probabilístico;
-   - la **acción recomendada**, con un aviso si hay riesgo de perder datos;
-   - **cómo se llegó a la conclusión**: cada regla con sus condiciones cumplidas (✔) o negadas (✖) y el cálculo de su aporte.
-4. **Guardar consulta** la registra en la base. Después puede **descargar el informe** en texto.
-5. Otras secciones:
-   - **Historial:** las consultas guardadas.
-   - **Base de conocimiento:** las hipótesis, sus reglas If / And / Then y las evidencias.
-
-### 6. Pruebas automáticas
-
-```bash
-python -m unittest discover -s tests -v      # 22 pruebas: motor, API y handler de Lambda
-```
-
-### 7. Usar MySQL 8 en lugar de SQLite
-
-1. En MySQL Workbench, ejecute en este orden:
-   - `bd/mysql/01_esquema.sql`, que crea la base `sedati`;
-   - `bd/02_datos_conocimiento.sql`;
-   - `bd/03_datos_operacion.sql`.
-
-   Otra opción es cargarlos con
-   `python aws/cargar_base_conocimiento.py --host localhost --usuario root`.
-2. En `config.ini` ponga `motor = mysql` y llene usuario y contraseña en la sección `[mysql]`.
-
-Los dos motores dan los mismos resultados: los 12 casos de prueba se verificaron en ambos.
-
-### 8. Configuración
-
-Los parámetros del motor están en la sección `[motor]` de `config.ini`:
-
-| Parámetro | Para qué sirve | Valor por defecto |
-|---|---|---|
-| `beta` | Sensibilidad del peso probabilístico al factor de certeza | 5,0 |
-| `umbral_probabilidad` | Probabilidad de la hipótesis líder con la que se recomienda concluir | 0,85 |
-| `ganancia_minima` | Ganancia de información mínima, en bits, para seguir preguntando | 0,01 |
-| `max_preguntas` | Número máximo de preguntas | 20 |
-| `hipotesis_resultado` | Número de hipótesis que entrega el sistema | 5 |
-| `aplicabilidad_base` | Peso de una regla cuyo síntoma de entrada no fue reportado | 0,10 |
-
-La conexión a la base también se puede indicar con variables de entorno, que tienen prioridad sobre `config.ini`:
-`SEDATI_MOTOR_BD` (`sqlite` o `mysql`), `SEDATI_RUTA_SQLITE`, `SEDATI_MYSQL_HOST`, `SEDATI_MYSQL_PUERTO`,
-`SEDATI_MYSQL_USUARIO`, `SEDATI_MYSQL_CONTRASENA` y `SEDATI_MYSQL_BASE`.
-
-## El sistema experto como servicio web (API REST)
-
-El mismo motor se publica como **API REST** y lo consume la **interfaz web** (`web/`):
-
-- `sedati/servicio/` es la capa de servicio. Traduce las peticiones HTTP a la capa de negocio y **no guarda estado**: el
-  cliente envía los síntomas y todas las respuestas, y el motor rehace el razonamiento en cada llamada.
-- `servidor_web.py` es el servidor local, hecho solo con la biblioteca estándar de Python.
-- `lambda_function.py` es el punto de entrada en **AWS Lambda**. Las dos atienden las mismas rutas.
-- `web/` es la interfaz estática (HTML, CSS y JS sin dependencias). La dirección del servicio se configura en
-  `web/config.js`: vacía para usar el servidor local, o la URL de API Gateway en AWS.
-
-| Método | Ruta | Qué hace |
-|---|---|---|
-| GET | `/api/salud` | Estado del servicio y de la base de datos |
-| GET | `/api/catalogo` | Categorías, síntomas iniciales y escala de respuestas |
-| POST | `/api/diagnostico` | Siguiente pregunta, top 5 con peso probabilístico, explicación y traza |
-| POST | `/api/consultas` | Guarda la consulta terminada y su diagnóstico |
-| GET | `/api/consultas` | Historial de consultas |
-| GET | `/api/consultas/{id}` | Razonamiento de una consulta guardada |
-| GET | `/api/consultas/{id}/informe` | Informe en texto |
-| GET | `/api/conocimiento/hipotesis` | Hipótesis de la base de conocimiento |
-| GET | `/api/conocimiento/hipotesis/{id}` | Reglas If / And / Then de una hipótesis |
-| GET | `/api/conocimiento/evidencias` | Síntomas y pruebas |
-
-Ejemplo, con el servidor local encendido:
-
-```bash
-curl -X POST http://localhost:8000/api/diagnostico -H "Content-Type: application/json" \
-     -d '{"sintomas": [79], "respuestas": [{"evidencia_id": 87, "escala": "SI"}]}'
-```
-
-- `sintomas` son los `id` de las evidencias marcadas al inicio.
-- `respuestas` son todas las respuestas en orden. `escala` puede ser `SI`, `PROB_SI`, `NO_SE`, `PROB_NO` o `NO`.
-
-## Desplegar en AWS
-
-Arquitectura: **Amazon RDS for MySQL** guarda la base de conocimiento, **AWS Lambda** ejecuta el motor de inferencia,
-**Amazon API Gateway** publica la API y **Amazon S3** aloja la interfaz web.
-
-1. **RDS.** Cree una instancia MySQL 8 (p. ej. `db.t4g.micro`, 20 GB) y permita el puerto 3306 desde su IP. Luego cargue
-   la base de conocimiento y cree el usuario de la función, con permisos mínimos:
-   ```bash
-   python aws/cargar_base_conocimiento.py --host <endpoint-rds> --usuario admin --usuario-servicio sedati_app
-   ```
-2. **Lambda.** Arme el paquete con `python aws/construir_paquete_lambda.py`, que crea `dist/sedati_lambda.zip`. Cree
-   una función:
-   - Python 3.13, handler `lambda_function.lambda_handler`, 512 MB y 15 s.
-   - En la misma VPC que RDS. Su grupo de seguridad debe poder entrar al 3306 de RDS.
-   - Variables de entorno: `SEDATI_MOTOR_BD=mysql`, `SEDATI_MYSQL_HOST`, `SEDATI_MYSQL_USUARIO=sedati_app`,
-     `SEDATI_MYSQL_CONTRASENA` y `SEDATI_MYSQL_BASE=sedati`.
-3. **API Gateway.** Cree una API HTTP con la ruta `ANY /api/{proxy+}` integrada con la función, etapa `$default`.
-4. **S3.**
-   - Ponga la URL de la API en `web/config.js`.
-   - Suba los archivos de `web/` a un bucket con alojamiento de sitio web estático y lectura pública.
-   - Opcional: ponga la URL del sitio en la variable `SEDATI_CORS_ORIGEN` de la función.
-
-Sin `SEDATI_MOTOR_BD=mysql`, la función usa SQLite en `/tmp`. Sirve para una demostración sin RDS, pero el historial se
-pierde cuando la función se recicla.
-
-## Entregables
-
-| Entregable | Archivo |
+| Correo | Rol |
 |---|---|
-| Diagrama de caja negra | `diseno/caja_negra.png` (fuente `.dot`) |
-| Diagrama de flujo de datos | `diseno/dfd_nivel0.png` (contexto) y `diseno/dfd_nivel1.png` (notación Gane–Sarson) |
-| Código fuente OO a tres capas | `sedati/datos`, `sedati/negocio`, `sedati/presentacion` · diagrama `diseno/clases_tres_capas.png` |
-| Base de datos | `bd/` (MySQL 8 y SQLite) · modelo `diseno/mer_sistema_inferencia.png` |
-| Complemento | `diseno/ciclo_inferencia.png` (actividades del motor) y `diseno/capturas/` (pantallas) |
+| `admin@sedati.example` | Administrador |
+| `laura.gomez@sedati.example` | Administrador |
+| `solicitante@sedati.example` | Solicitante |
+| `ana.rodriguez@sedati.example` | Solicitante |
+| `miguel.torres@sedati.example` | Solicitante |
 
-## Arquitectura en tres capas
+La primera vez, las dos bases se crean solas a partir de los scripts de `bd/`: `bd/sedati_kb.db` y `bd/sedati_trx.db`.
+También se cargan seis incidentes de demostración, que se crean con la propia lógica del sistema:
+
+| Incidente | Qué muestra |
+|---|---|
+| 1 | Cerrado en la primera ronda |
+| 2 | Cerrado en la segunda ronda, después de que una solución no funcionó |
+| 3 | Escalado |
+| 4 | Cerrado |
+| 5 | En diagnóstico |
+| 6 | Abierto y sin responsable |
+
+Para empezar de cero, borre esos dos archivos `.db`.
+
+> Cambie las contraseñas de demostración antes de usar el sistema con datos reales
+> (`config.ini` → `datos_demostracion = no`).
+
+### Recorrido sugerido
+
+1. Ingrese como **solicitante** → **+ Reportar incidente**.
+2. Ingrese como **administrador** → **Incidentes** → abra el incidente → **Tomar incidente** → **Programar cita** →
+   **Iniciar ronda 1 de diagnóstico**.
+3. Marque los síntomas y responda las preguntas con su grado de certeza. Puede usar las teclas **1** a **5**.
+4. **Ver diagnóstico** → **Guardar ronda**.
+5. En el incidente, **Confirmar** la hipótesis → **Registrar solución**:
+   - con *Solucionado*, el incidente se cierra;
+   - con *No solucionado*, ejecute una nueva ronda: la hipótesis que falló ya no se propone.
+6. Revise **Indicadores**, **Historial**, **Usuarios** y **Base de conocimiento**. En esta última puede crear un
+   gránulo, simularlo, editarlo (sube de versión) o desactivarlo.
+
+## 2. Pruebas automáticas
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Son 33 pruebas en total:
+
+- 17 prueban el motor;
+- 16 prueban la API y los procesos transaccionales: acceso, bloqueo, permisos por rol, flujo completo de un incidente
+  con dos rondas, escalamiento, administración del conocimiento y handler de Lambda.
+
+Las mismas pruebas corren contra un MySQL 8 real:
+
+```bash
+SEDATI_PRUEBAS_MYSQL=127.0.0.1:3306:root:<contraseña> python -m unittest tests.test_api
+```
+
+## 3. Usar MySQL 8
+
+1. Instale las dos bases. Esto ejecuta, en orden, los mismos scripts que se abren en MySQL Workbench:
+   ```bash
+   python bd/instalar_mysql.py --host localhost --usuario root --usuario-servicio sedati_app --demo
+   ```
+2. En `config.ini` ponga `motor = mysql` y escriba el usuario y la contraseña en `[mysql]`.
+
+| Script | Contenido |
+|---|---|
+| `bd/mysql/01_kb_esquema.sql` | Base de conocimiento `sedati_kb`: **exactamente 3 tablas** (`hipotesis`, `evidencia`, `granulo`) y sus disparadores |
+| `bd/02_kb_datos.sql` | Conocimiento del experto: 38 hipótesis, 153 evidencias, 88 reglas (224 filas de `granulo`) |
+| `bd/mysql/03_trx_esquema.sql` | Base transaccional `sedati_trx`: 18 tablas y 33 disparadores de integridad (41 en la versión SQLite) |
+| `bd/04_trx_datos.sql` | Roles, módulos, matriz de permisos, dependencias, tipos de equipo y cuentas de demostración |
+| `bd/mysql/05_roles_permisos.sql` | Roles de MySQL (`sedati_solicitante`, `sedati_administrador`, `sedati_aplicacion`), sin permiso de borrado |
+| `bd/mysql/06_consultas_granulos_por_hipotesis.sql` | Vistas, procedimientos de inferencia en SQL y consultas C1 a C11 del manual |
+
+Los scripts de `bd/sqlite/` son los equivalentes para SQLite.
+
+## 4. Arquitectura
 
 ```
-main.py                    arma las capas (raíz de composición)
+servidor_web.py · lambda_function.py   puntos de entrada (local / AWS Lambda)
+web/                                   interfaz web (HTML, CSS y JS sin dependencias)
+  app.js        núcleo, diagnóstico, base de conocimiento, historial
+  atencion.js   acceso, incidentes, citas, usuarios, indicadores, administración del conocimiento
 sedati/
-├── datos/                 CAPA DE DATOS — única que conoce SQL
-│   ├── conexion.py        ConexionBD (abstracta) → ConexionSQLite, ConexionMySQL
-│   ├── repositorio_conocimiento.py   consultas granulares a hipotesis / evidencia / granulo
-│   └── repositorio_consultas.py      registro de consultas, respuestas y resultados
-├── negocio/               CAPA DE NEGOCIO — sin SQL ni interfaz
-│   ├── modelos.py         Hipotesis, Evidencia, Granulo, Condicion, ResultadoHipotesis, Pregunta…
-│   ├── memoria_trabajo.py hechos conocidos y conocimiento ya consultado
-│   ├── motor_inferencia.py  encadenamiento hacia adelante y cálculo de pesos
-│   ├── selector_preguntas.py  siguiente pregunta por ganancia de información
-│   ├── certeza.py         fórmulas (MYCIN, aplicabilidad, distribución, entropía)
-│   ├── explicacion.py     «¿por qué pregunta esto?» y «¿cómo llegó a esta conclusión?»
-│   └── servicios.py       ServicioDiagnostico, SesionDiagnostico, ServicioConocimiento
-├── servicio/              CAPA DE SERVICIO — API REST para la web y AWS Lambda
-│   ├── api.py             rutas /api/* sobre los servicios de negocio
-│   └── serializacion.py   objetos del motor → JSON
-└── presentacion/          CAPA DE PRESENTACIÓN — CustomTkinter + matplotlib
-    ├── aplicacion.py      ventana principal y navegación
-    ├── vista_inicio.py    nuevo diagnóstico (equipo y síntomas)
-    ├── vista_consulta.py  preguntas, respuestas graduadas y razonamiento en vivo
-    ├── vista_resultado.py las 5 hipótesis, su explicación y la acción recomendada
-    ├── vista_conocimiento.py  explorador de la base de conocimiento
-    └── vista_historial.py consultas guardadas
+├── servicio/   CAPA DE SERVICIO: API REST, sesión por token firmado, permiso por ruta
+├── negocio/    CAPA DE NEGOCIO: sin SQL ni interfaz
+│   ├── motor_inferencia.py, memoria_trabajo.py, selector_preguntas.py, certeza.py, explicacion.py
+│   ├── servicios.py               ServicioDiagnostico y ServicioConocimiento     (RF-02, RF-03)
+│   ├── servicio_acceso.py         ServicioAcceso y ServicioUsuarios              (RF-01)
+│   ├── servicio_atencion.py       incidentes, citas, rondas, solución, escalamiento e indicadores (RF-02)
+│   ├── servicio_conocimiento.py   administración de hipótesis, evidencias y gránulos (RF-03)
+│   └── seguridad.py               PBKDF2-SHA256 con sal y tokens HMAC
+├── datos/      CAPA DE DATOS: patrón DAO, la única que conoce SQL
+│   ├── conexion.py                ConexionBD (abstracta) → ConexionSQLite, ConexionMySQL
+│   ├── dto.py                     objetos de transferencia (UsuarioDTO, IncidenteDTO, …)
+│   └── dao/
+│       ├── interfaces.py          13 interfaces DAO
+│       ├── sql_conocimiento.py    ConocimientoDAOSQL, AdministracionConocimientoDAOSQL (sedati_kb)
+│       ├── sql_transaccional.py   UsuarioDAOSQL, IncidenteDAOSQL, CitaDAOSQL, DiagnosticoDAOSQL, … (sedati_trx)
+│       └── fabrica.py             FabricaDAO
+└── presentacion/  aplicación de escritorio (CustomTkinter): consulta rápida del motor (python main.py)
 ```
 
-Las dependencias van en un solo sentido: presentación → negocio → datos.
+Las dependencias van en un solo sentido: servicio / presentación → negocio → datos.
 
-## Cómo razona el motor
+## 5. Diseño
 
-**1. Respuestas graduadas.** El usuario no responde solo sí o no. Indica qué tan seguro está de cada observación,
-y la tabla `escala_respuesta` traduce cada respuesta a un valor:
+| Diagrama | Archivo (fuente editable al lado) |
+|---|---|
+| Árbol de decisión: general y una figura por rama | `diseno/arbol/*.png` (`python diseno/generar_arbol.py`, a partir de la base) |
+| Caja negra | `diseno/caja_negra.png` |
+| Flujo de datos | `diseno/dfd_nivel0.png`, `diseno/dfd_nivel1.png`, `diseno/dfd_nivel2_diagnostico.png` |
+| Clases DAO | `diseno/clases_dao_conocimiento.png`, `diseno/clases_dao_transaccional.png` |
+| Modelo relacional obtenido del SGBD | `diseno/mr_sedati_kb.png`, `diseno/mer_sedati.png` (`python diseno/generar_mer.py`, lee `information_schema` de MySQL) |
+| Capturas de la web | `diseno/capturas_web/` |
 
-| Respuesta | Sí, con certeza | Probablemente sí | No lo sé | Probablemente no | No, con certeza |
-|---|---|---|---|---|---|
-| Valor | +1,0 | +0,6 | 0 | −0,6 | −1,0 |
+## 6. API REST
 
-**2. Consultas sucesivas y granulares.** El motor no carga la base completa. Va trayendo solo lo que necesita:
-- los gránulos que contienen los síntomas reportados;
-- el resto de gránulos de esas categorías, que forman el diagnóstico diferencial;
-- las condiciones de esas reglas y las evidencias equivalentes.
+Todas las rutas exigen `Authorization: Bearer <token>`, excepto `GET /api/salud` y `POST /api/auth/ingresar`. El token
+lo entrega el ingreso y se renueva en cada respuesta (campo `_sesion`). Vence a los 15 minutos sin actividad.
 
-Cada respuesta afirmativa dispara una nueva consulta por los gránulos que contienen esa evidencia. La pestaña
-*Consultas a la base* muestra la traza de cada consulta.
+El servidor valida el permiso de cada ruta contra la matriz `rol_permiso`. El solicitante solo ve sus propios
+incidentes y citas.
 
-**3. Deducción entre evidencias.** Las evidencias que describen la misma observación comparten una `variable`, y su
-`polaridad` indica si la afirman (+1) o la niegan (−1). Por ejemplo, *«hay tensión en la toma»* (+1) y *«no hay
-tensión en la toma»* (−1). Al responder una, el motor deduce las demás y no las vuelve a preguntar.
+La lista completa de rutas aparece en la vista **Servicio** de la web y en `RUTAS`, al final de `sedati/servicio/api.py`.
 
-**4. Evaluación de cada gránulo (regla If / And / Then).** El síntoma de entrada (la condición *If*) decide si la
-regla aplica, y las condiciones *And* la confirman:
-
-```
-grado(g)   = Σ peso_i · v_i / Σ peso_i                 (sobre las condiciones And; v_i ∈ [−1, 1], 0 si se desconoce)
-a(g)       = a0 + (1 − a0)·v_If   si v_If ≥ 0          (aplicabilidad; a0 = 0,10 en config.ini)
-           = a0 · (1 + v_If)      si v_If < 0
-aporte(g)  = a(g) · grado(g) · factor_certeza(g)
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/auth/ingresar -H "Content-Type: application/json" \
+        -d '{"correo":"admin@sedati.example","contrasena":"Sedati2026*"}' | python -c "import json,sys;print(json.load(sys.stdin)['_sesion']['token'])")
+curl -X POST http://127.0.0.1:8000/api/diagnostico -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" -d '{"sintomas": [79], "respuestas": [{"evidencia_id": 87, "escala": "SI"}]}'
 ```
 
-Con todas las condiciones confirmadas, el aporte es igual al factor de certeza del experto.
+## 7. Desplegar en AWS
 
-**5. Factor de certeza de cada hipótesis.** Sus reglas son caminos alternativos. Los aportes positivos se refuerzan
-con la regla de MYCIN, `a + b(1 − a)`. Si ningún camino la apoya, se toma el aporte menos negativo: negar una regla
-no descarta las demás reglas de la misma hipótesis.
+| Servicio | Qué aloja |
+|---|---|
+| Amazon RDS for MySQL | `sedati_kb` y `sedati_trx` |
+| AWS Lambda | Servicio, negocio, motor y DAO |
+| Amazon API Gateway | `ANY /api/{proxy+}` |
+| Amazon S3 | `web/` |
 
-**6. Peso probabilístico.**
-
-```
-previa_ctx(h) = Σ_g  previa(h)/reglas(h) · a(g)
-P(h)          = previa_ctx(h) · e^(β·FC(h)) / Σ_j previa_ctx(j) · e^(β·FC(j))      (β = 5)
-```
-
-`previa(h)` viene de la distribución de casos de la revisión documental (sección 9.5 del documento): red 31 %,
-software y accesos 22 %, etc. Se reparte entre las reglas de cada categoría.
-
-**7. Selección de la siguiente pregunta.** Para cada observación pendiente, el motor simula las respuestas «Sí» y
-«No» y pregunta por la que más reduce la entropía de la distribución:
-
-```
-ganancia(q) = H(P) − [ P(sí|q)·H(P | q = sí) + P(no|q)·H(P | q = no) ]
-```
-
-Las condiciones *And* de una regla solo se preguntan cuando su síntoma de entrada está confirmado.
-
-**8. Cuándo concluir.** El motor recomienda concluir en cualquiera de estos casos:
-- la hipótesis líder llega al 85 %;
-- ninguna pregunta aporta más de 0,01 bits;
-- no quedan preguntas;
-- se llegó a 20 preguntas.
-
-El usuario puede ver el diagnóstico en cualquier momento o seguir respondiendo.
-
-## Base de datos
-
-**Base de conocimiento: exactamente 3 tablas.**
-- `hipotesis` (38): incluye `probabilidad_previa`.
-- `evidencia` (153): 29 síntomas y 124 pruebas, con `pregunta`, `variable` y `polaridad`.
-- `granulo` (224 filas): una fila por cada condición de las 88 reglas, con `regla`, `orden`, `conector`, `peso`,
-  conclusión, acción, factor de certeza y riesgo de pérdida de datos.
-
-**Operación del motor: 4 tablas.**
-- `escala_respuesta`
-- `consulta`
-- `consulta_respuesta`
-- `consulta_hipotesis`: guarda el top 5 con su probabilidad y certeza.
-
-Las reglas, hipótesis y evidencias provienen del documento del proyecto (capítulo 11 y sección 14.4).
-- La asignación de cada regla a su hipótesis se reconstruyó y se verificó contra la tabla de la sección 14.4:
-  número de gránulos, certezas mínima y máxima, y ramas de cada hipótesis.
-- Los 26 códigos E-NNN que el documento publica en sus consultas coinciden.
-- Las variables observables, las probabilidades previas y las marcas de riesgo son conocimiento añadido en esta
-  entrega. Conviene que las valide el experto.
+1. **RDS.**
+   ```bash
+   python bd/instalar_mysql.py --host <endpoint-rds> --usuario admin --usuario-servicio sedati_app --demo
+   ```
+2. **Lambda.** Ejecute `python aws/construir_paquete_lambda.py`, que crea `dist/sedati_lambda.zip`. Configure la
+   función así:
+   - Python 3.13, handler `lambda_function.lambda_handler`, 512 MB, 15 s, en la VPC de RDS.
+   - Variables de entorno:
+     - `SEDATI_MOTOR_BD=mysql`
+     - `SEDATI_MYSQL_HOST`
+     - `SEDATI_MYSQL_USUARIO=sedati_app`
+     - `SEDATI_MYSQL_CONTRASENA`
+     - `SEDATI_MYSQL_BASE_KB=sedati_kb`
+     - `SEDATI_MYSQL_BASE_TRX=sedati_trx`
+     - `SEDATI_SECRETO`: una cadena aleatoria larga.
+3. **API Gateway.** Cree una API HTTP con la ruta `ANY /api/{proxy+}` y la etapa `$default`.
+4. **S3.** Ponga la URL de la API en `web/config.js` y suba `index.html`, `estilos.css`, `app.js`, `atencion.js` y
+   `config.js`.

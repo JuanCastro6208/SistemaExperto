@@ -33,6 +33,7 @@ class MotorInferencia:
         self.pasos = []                # PasoInferencia, para la evolución de las probabilidades
         self.preguntas_respondidas = 0
         self._paso = 0
+        self.descartadas = set()       # id de hipótesis descartadas en rondas anteriores del incidente
 
     # ================================================================ consultas a la base
     def _anotar_consulta(self, descripcion, filas):
@@ -76,14 +77,23 @@ class MotorInferencia:
         return [e.id for e in self.memoria.grupos.get(evidencia.variable, [evidencia])
                 if valor * evidencia.polaridad * e.polaridad > 0]
 
+    def _vigentes(self):
+        return [h for h in self.memoria.hipotesis if h not in self.descartadas]
+
     def _asegurar_minimo(self):
-        faltan = self.parametros.hipotesis_resultado - len(self.memoria.hipotesis)
+        faltan = self.parametros.hipotesis_resultado - len(self._vigentes())
         if faltan > 0:
-            self._cargar_reglas(self._repo.reglas_de_hipotesis_mas_probables(self.memoria.hipotesis, faltan))
+            excluir = set(self.memoria.hipotesis) | self.descartadas
+            self._cargar_reglas(self._repo.reglas_de_hipotesis_mas_probables(excluir, faltan))
 
     # ================================================================ ciclo de inferencia
-    def iniciar(self, sintoma_ids):
-        """Registra los síntomas iniciales y arma el diagnóstico diferencial."""
+    def iniciar(self, sintoma_ids, descartadas=()):
+        """Registra los síntomas iniciales y arma el diagnóstico diferencial.
+
+        descartadas: id de las hipótesis que el administrador descartó en rondas anteriores del mismo
+        incidente; no se proponen de nuevo (RF-02).
+        """
+        self.descartadas = set(descartadas)
         self.memoria = MemoriaTrabajo()
         self.traza_consultas, self.pasos = [], []
         self.preguntas_respondidas, self._paso = 0, 0
@@ -130,7 +140,7 @@ class MotorInferencia:
 
     def _calcular(self, supuesto=None):
         """Evalúa todos los gránulos en memoria y devuelve (aportes, FC, previas contextuales, P)."""
-        aportes = {h: [] for h in self.memoria.hipotesis}
+        aportes = {h: [] for h in self._vigentes()}
         for g in self.memoria.granulos.values():
             if g.hipotesis_id in aportes:
                 aportes[g.hipotesis_id].append(self.evaluar_granulo(g, supuesto))

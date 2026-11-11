@@ -34,6 +34,8 @@ class SelectorGananciaInformacion:
         m = motor.memoria
         candidatas = {}
         for g in m.granulos.values():
+            if g.hipotesis_id in motor.descartadas:      # hipótesis descartada en una ronda anterior
+                continue
             entrada = g.condiciones[0].evidencia
             if not m.ya_preguntada(entrada):
                 pendientes = [entrada]
@@ -68,8 +70,8 @@ class SelectorGananciaInformacion:
             dist_no = motor.probabilidades((q, -1.0))
             esperada = p_si * certeza.entropia(dist_si.values()) + (1 - p_si) * certeza.entropia(dist_no.values())
             ganancia = h_actual - esperada
-            reglas = [g for g in motor.memoria.granulos.values()
-                      if any(_relacion(q, c.evidencia) for c in g.condiciones)]
+            reglas = [g for g in motor.memoria.granulos.values() if g.hipotesis_id not in motor.descartadas
+                      and any(_relacion(q, c.evidencia) for c in g.condiciones)]
             relevancia = sum(base.get(g.hipotesis_id, 0) for g in reglas)
             # desempate: más relevancia para las hipótesis probables; luego síntomas antes que pruebas
             clave = (round(ganancia, 6), round(relevancia, 6), q.es_sintoma, -q.id)

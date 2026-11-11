@@ -1,0 +1,24 @@
+digraph "rama_F4" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="F4 · Sin comunicación con la red\nlocal\n(P-16)", shape=box, style="rounded,filled,bold", fillcolor="#E0F7FA", color="#0F8B8D", fontsize=11];
+  n1 [label="el equipo no se comunica\ncon otros equipos de la\nred\n[E-109]"];
+  raiz -> n1 [label="If"];
+  n2 [label="obtiene respuesta de la\npuerta de enlace\n[E-094]"];
+  n1 -> n2 [label="And"];
+  n3 [label="el firewall local registra\nel bloqueo del tráfico\n[E-110]"];
+  n2 -> n3 [label="And"];
+  h_R62 [label="R-62 · FC 80 %\nla falla está en la\nconfiguración del firewall\nlocal", fillcolor="#E0F7FA", color="#0F8B8D", shape=note, style="filled"];
+  n3 -> h_R62 [label="Then", color="#0F8B8D"];
+  n4 [label="la máscara de subred\nconfigurada no corresponde\nal segmento\n[E-111]"];
+  n1 -> n4 [label="And"];
+  h_R63 [label="R-63 · FC 85 %\nla falla está en la\nconfiguración de\ndireccionamiento del equipo", fillcolor="#E0F7FA", color="#0F8B8D", shape=note, style="filled"];
+  n4 -> h_R63 [label="Then", color="#0F8B8D"];
+  n5 [label="el direccionamiento del\nequipo es correcto\n[E-112]"];
+  n1 -> n5 [label="And"];
+  n6 [label="el recurso consultado\npertenece a otra VLAN\n[E-113]"];
+  n5 -> n6 [label="And"];
+  h_R64 [label="R-64 · FC 80 %\nla falla está en la\nsegmentación o en el\nenrutamiento entre VLAN", fillcolor="#E0F7FA", color="#0F8B8D", shape=note, style="filled"];
+  n6 -> h_R64 [label="Then", color="#0F8B8D"];
+}

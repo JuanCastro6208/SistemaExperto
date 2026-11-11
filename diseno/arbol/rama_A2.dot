@@ -1,0 +1,24 @@
+digraph "rama_A2" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="A2 · Equipo se apaga solo\n(P-05)", shape=box, style="rounded,filled,bold", fillcolor="#E8F0FE", color="#1F6FEB", fontsize=11];
+  n1 [label="el equipo se apaga de\nforma súbita\n[E-008]"];
+  raiz -> n1 [label="If"];
+  n2 [label="el apagado ocurre después\nde varios minutos de uso\n[E-009]"];
+  n1 -> n2 [label="And"];
+  n3 [label="el chasis presenta\ntemperatura elevada\n[E-010]"];
+  n2 -> n3 [label="And"];
+  h_R05 [label="R-05 · FC 85 %\nla falla está en el sistema de\ndisipación del equipo", fillcolor="#E8F0FE", color="#1F6FEB", shape=note, style="filled"];
+  n3 -> h_R05 [label="Then", color="#1F6FEB"];
+  n4 [label="el ventilador del\ndisipador no gira o gira\nde forma irregular\n[E-011]"];
+  n1 -> n4 [label="And"];
+  h_R06 [label="R-06 · FC 90 %\nla falla está en el ventilador\ndel disipador", fillcolor="#E8F0FE", color="#1F6FEB", shape=note, style="filled"];
+  n4 -> h_R06 [label="Then", color="#1F6FEB"];
+  n5 [label="el apagado es inmediato y\naleatorio\n[E-012]"];
+  n1 -> n5 [label="And"];
+  n6 [label="la temperatura del\nprocesador está dentro del\nrango normal\n[E-013]"];
+  n5 -> n6 [label="And"];
+  h_R07 [label="R-07 · FC 75 %\nla falla está en la fuente de\npoder o en la alimentación\neléctrica del puesto", fillcolor="#E8F0FE", color="#1F6FEB", shape=note, style="filled"];
+  n6 -> h_R07 [label="Then", color="#1F6FEB"];
+}

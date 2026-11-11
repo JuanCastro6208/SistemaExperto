@@ -35,6 +35,7 @@ def granulo(g, evaluacion=None):
         'conclusion': g.conclusion, 'accion': g.accion, 'riesgo_perdida_datos': g.riesgo_perdida_datos,
         'categoria_codigo': g.categoria_codigo, 'categoria_nombre': g.categoria_nombre,
         'rama_codigo': g.rama_codigo, 'rama_nombre': g.rama_nombre, 'version': g.version,
+        'procesos': g.procesos, 'activo': getattr(g, 'activo', True),
         'condiciones': condiciones,
     }
     if evaluacion:
@@ -78,7 +79,11 @@ def sesion(s):
     etiquetas = {o.codigo: o.etiqueta for o in s.opciones}
     ids_top = [r.hipotesis.id for r in top]
     return {
-        'consulta_id': s.consulta_id,
+        'diagnostico_id': s.diagnostico_id,
+        'consulta_id': s.diagnostico_id,
+        'incidente_id': s.incidente_id,
+        'ronda': s.ronda,
+        'descartadas': sorted(m.memoria.hipotesis[h].codigo for h in m.descartadas if h in m.memoria.hipotesis),
         'finalizada': s.finalizada,
         'datos': s.datos,
         'pregunta': pregunta(s.pregunta_actual, s.explicar_pregunta()),
@@ -108,3 +113,17 @@ def fila(f):
             v = float(v)
         salida[k] = v
     return salida
+
+
+def dto(objeto):
+    """Un DTO de la capa de datos (o una lista de ellos) como diccionario JSON."""
+    if objeto is None:
+        return None
+    if isinstance(objeto, (list, tuple)):
+        return [dto(o) for o in objeto]
+    if hasattr(objeto, 'como_dict'):
+        return fila(objeto.como_dict())
+    if isinstance(objeto, dict):
+        return {k: dto(v) if isinstance(v, (list, tuple, dict)) or hasattr(v, 'como_dict') else
+                (fila({k: v})[k]) for k, v in objeto.items()}
+    return objeto

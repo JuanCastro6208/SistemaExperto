@@ -14,7 +14,7 @@ import sys
 import traceback
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from sedati.servicio import ApiSEDATI
 
@@ -31,7 +31,7 @@ class Manejador(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(contenido)))
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.end_headers()
         self.wfile.write(contenido)
 
@@ -48,7 +48,10 @@ class Manejador(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 return self._json(400, {'error': 'El cuerpo de la petición no es JSON válido.'})
         try:
-            estado, datos = self.api.atender(metodo, urlparse(self.path).path, cuerpo)
+            url = urlparse(self.path)
+            consulta = {k: v[0] for k, v in parse_qs(url.query).items()}
+            estado, datos = self.api.atender(metodo, url.path, cuerpo, dict(self.headers.items()), consulta,
+                                             self.client_address[0])
         except Exception as error:  # noqa: BLE001
             traceback.print_exc()
             estado, datos = 500, {'error': f'Error interno del servicio: {error}'}
@@ -88,14 +91,15 @@ def main():
     args = parser.parse_args()
     Manejador.api = ApiSEDATI()
     servidor = HTTPServer(('127.0.0.1', args.puerto), Manejador)
-    print(f'SEDATI · servicio web en http://localhost:{args.puerto}  (base: {Manejador.api.conexion.descripcion})')
+    print(f'SEDATI · servicio web en http://127.0.0.1:{args.puerto}  (base: {Manejador.api.fabrica.descripcion})')
+    print('Cuentas de demostración: admin@sedati.example / solicitante@sedati.example  ·  contraseña Sedati2026*')
     print('Ctrl+C para detener.')
     try:
         servidor.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
-        Manejador.api.conexion.cerrar()
+        Manejador.api.fabrica.cerrar()
     return 0
 
 

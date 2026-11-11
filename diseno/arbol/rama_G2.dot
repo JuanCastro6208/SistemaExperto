@@ -1,0 +1,36 @@
+digraph "rama_G2" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="G2 · Falla de una aplicación\n(P-20, P-21)", shape=box, style="rounded,filled,bold", fillcolor="#FFF0E0", color="#D9822B", fontsize=11];
+  n1 [label="la aplicación no inicia\n[E-123]"];
+  raiz -> n1 [label="If"];
+  n2 [label="el sistema informa que\nfalta un componente o\nbiblioteca\n[E-124]"];
+  n1 -> n2 [label="And"];
+  h_R70 [label="R-70 · FC 85 %\nla falla está en las\ndependencias de la aplicación", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n2 -> h_R70 [label="Then", color="#D9822B"];
+  n3 [label="la aplicación sí abre al\nejecutarla con permisos\nelevados\n[E-125]"];
+  n1 -> n3 [label="And"];
+  h_R71 [label="R-71 · FC 90 %\nla falla está en los permisos\nde ejecución", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n3 -> h_R71 [label="Then", color="#D9822B"];
+  n4 [label="la aplicación sí abre con\notro perfil de usuario\n[E-126]"];
+  n1 -> n4 [label="And"];
+  h_R72 [label="R-72 · FC 80 %\nla falla está en el perfil del\nusuario", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n4 -> h_R72 [label="Then", color="#D9822B"];
+  n5 [label="la aplicación se cierra de\nforma inesperada\n[E-127]"];
+  raiz -> n5 [label="If"];
+  n6 [label="el visor de eventos señala\nun módulo de la propia\naplicación\n[E-128]"];
+  n5 -> n6 [label="And"];
+  h_R73 [label="R-73 · FC 80 %\nla falla está en los archivos\nde la aplicación", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n6 -> h_R73 [label="Then", color="#D9822B"];
+  n7 [label="el cierre ocurre al\ntrabajar con archivos de\ngran tamaño\n[E-129]"];
+  n5 -> n7 [label="And"];
+  n8 [label="el consumo de memoria\nalcanza el límite del\nequipo\n[E-130]"];
+  n7 -> n8 [label="And"];
+  h_R74 [label="R-74 · FC 80 %\nla falla está en la\ninsuficiencia de memoria", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n8 -> h_R74 [label="Then", color="#D9822B"];
+  n9 [label="el cierre no se presenta\nal deshabilitar los\ncomplementos\n[E-131]"];
+  n5 -> n9 [label="And"];
+  h_R75 [label="R-75 · FC 85 %\nla falla está en un\ncomplemento instalado", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n9 -> h_R75 [label="Then", color="#D9822B"];
+}

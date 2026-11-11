@@ -1,25 +1,36 @@
-"""Servicios que la capa de presentación usa para trabajar con el sistema experto."""
-from datetime import datetime
-
+"""Servicios del sistema experto: el diagnóstico con el motor de inferencia y la consulta del conocimiento."""
 from . import explicacion
+from .errores import ErrorNegocio, NoEncontrado
 from .fabrica import evidencia_desde, granulos_desde
 from .modelos import OpcionRespuesta
 from .motor_inferencia import MotorInferencia
 
 
-class SesionDiagnostico:
-    """Una consulta en curso: une el motor de inferencia con su registro en la base de datos."""
+def _texto_fecha(fecha):
+    return fecha.strftime('%Y-%m-%d %H:%M:%S') if hasattr(fecha, 'strftime') else str(fecha)
 
-    def __init__(self, motor, repo_consultas, consulta_id, opciones, datos):
+
+class SesionDiagnostico:
+    """Una ronda de diagnóstico en curso: une el motor de inferencia con su registro en sedati_trx."""
+
+    def __init__(self, motor, dao_diagnostico, diagnostico_id, opciones, datos, reloj, incidente_id=None):
         self.motor = motor
-        self._repo = repo_consultas
-        self.consulta_id = consulta_id
+        self._dao = dao_diagnostico
+        self._reloj = reloj
+        self.diagnostico_id = diagnostico_id
+        self.incidente_id = incidente_id
         self.opciones = opciones
         self.datos = datos              # equipo, ubicación, descripción
         self.finalizada = False
         self.pregunta_actual = None
         self.motivo_conclusion = None
-        self.iniciada_en = datetime.now()
+        self.iniciada_en = reloj()
+        self.ronda = 1
+
+    # compatibilidad con la interfaz de escritorio, que habla de «consulta»
+    @property
+    def consulta_id(self):
+        return self.diagnostico_id
 
     # ------------------------------------------------------------ preguntas y respuestas
     def avanzar(self):
@@ -28,14 +39,17 @@ class SesionDiagnostico:
         self.motivo_conclusion = self.motor.motivo_para_concluir(self.pregunta_actual)
         return self.pregunta_actual
 
+    def _guardar(self, evidencia, opcion, origen):
+        if self.diagnostico_id:
+            r = self.motor.memoria.respuestas[evidencia.id]
+            self._dao.guardar_respuesta(self.diagnostico_id, r.orden, evidencia.codigo, opcion.codigo, opcion.valor,
+                                        origen, _texto_fecha(self._reloj()))
+
     def responder(self, evidencia, opcion):
-        es_inicial = (evidencia.id in self.motor.memoria.respuestas and
-                      self.motor.memoria.respuestas[evidencia.id].origen == 'SINTOMA_INICIAL')
-        origen = 'SINTOMA_INICIAL' if es_inicial else 'PREGUNTA'
+        previa = self.motor.memoria.respuestas.get(evidencia.id)
+        origen = 'SINTOMA_INICIAL' if previa and previa.origen == 'SINTOMA_INICIAL' else 'PREGUNTA'
         self.motor.responder(evidencia, opcion, origen)
-        r = self.motor.memoria.respuestas[evidencia.id]
-        if self.consulta_id:
-            self._repo.guardar_respuesta(self.consulta_id, r.orden, evidencia.id, opcion.codigo, opcion.valor, origen)
+        self._guardar(evidencia, opcion, origen)
         return self.avanzar()
 
     def opcion(self, codigo):
@@ -51,28 +65,39 @@ class SesionDiagnostico:
     def explicar_hipotesis(self, resultado):
         return explicacion.como(resultado, self.motor.parametros.beta)
 
+    def propuestas(self):
+        """Las hipótesis del resultado tal como se guardan en diagnostico_hipotesis."""
+        salida = []
+        for r in self.resultado():
+            g = r.principal.granulo if r.principal else None
+            salida.append({'posicion': r.posicion, 'hipotesis_codigo': r.hipotesis.codigo,
+                           'hipotesis_nombre': r.hipotesis.nombre, 'granulo_codigo': g.regla if g else None,
+                           'granulo_version': g.version if g else None, 'conclusion': g.conclusion if g else None,
+                           'accion': g.accion if g else None, 'probabilidad': r.probabilidad, 'certeza': r.certeza})
+        return salida
+
     def finalizar(self):
         if self.finalizada:
             return self.resultado()
         top = self.resultado()
-        if self.consulta_id:
-            self._repo.finalizar(
-                self.consulta_id, self.motor.preguntas_respondidas,
-                [(r.posicion, r.hipotesis.id, r.probabilidad, r.certeza,
-                  r.principal.granulo.regla if r.principal else None) for r in top])
+        if self.diagnostico_id:
+            self._dao.finalizar(self.diagnostico_id, self.motor.preguntas_respondidas, self.propuestas(),
+                                _texto_fecha(self._reloj()))
         self.finalizada = True
         return top
 
     def cancelar(self):
-        if self.consulta_id and not self.finalizada:
-            self._repo.cancelar(self.consulta_id)
+        if self.diagnostico_id and not self.finalizada:
+            self._dao.cancelar(self.diagnostico_id, _texto_fecha(self._reloj()))
 
     def informe(self):
-        """Informe en texto plano de la consulta (para exportar)."""
+        """Informe en texto plano de la ronda de diagnóstico (para exportar)."""
         top = self.resultado()
         d = self.datos
         lineas = ['SEDATI - Informe de diagnóstico', '=' * 60,
-                  f'Consulta: {self.consulta_id or "-"}    Fecha: {self.iniciada_en:%Y-%m-%d %H:%M}',
+                  f'Diagnóstico: {self.diagnostico_id or "-"}    Ronda: {self.ronda}    '
+                  f'Fecha: {_texto_fecha(self.iniciada_en)[:16]}',
+                  f'Incidente: {d.get("incidente") or "-"}',
                   f'Equipo: {d.get("equipo") or "-"}    Ubicación: {d.get("ubicacion") or "-"}',
                   f'Descripción: {d.get("descripcion") or "-"}', '',
                   'RESPUESTAS', '-' * 60]
@@ -87,7 +112,7 @@ class SesionDiagnostico:
             lineas += ['', '=' * 60] + self.explicar_hipotesis(r)
             if r.principal:
                 g = r.principal.granulo
-                lineas.append(f'Acción recomendada ({g.regla}): {g.accion}')
+                lineas.append(f'Acción recomendada ({g.regla} v{g.version}): {g.accion}')
                 if g.riesgo_perdida_datos:
                     lineas.append('ADVERTENCIA: la acción puede ocasionar pérdida de información; respalde antes.')
         lineas += ['', 'CONSULTAS GRANULARES A LA BASE DE CONOCIMIENTO', '-' * 60]
@@ -97,14 +122,16 @@ class SesionDiagnostico:
 
 
 class ServicioDiagnostico:
-    def __init__(self, repo_conocimiento, repo_consultas, parametros):
-        self._kb = repo_conocimiento
-        self._consultas = repo_consultas
+    def __init__(self, dao_conocimiento, dao_diagnostico, dao_catalogo, parametros, reloj):
+        self._kb = dao_conocimiento
+        self._diagnosticos = dao_diagnostico
+        self._catalogo = dao_catalogo
         self.parametros = parametros
+        self._reloj = reloj
 
     def opciones_respuesta(self):
         return [OpcionRespuesta(f['codigo'], f['etiqueta'], float(f['valor']), f['color'])
-                for f in self._consultas.escala()]
+                for f in self._catalogo.escala_respuestas()]
 
     def categorias(self):
         return self._kb.categorias()
@@ -112,88 +139,113 @@ class ServicioDiagnostico:
     def sintomas(self, categoria):
         return self._kb.sintomas_por_categoria(categoria)
 
-    def iniciar(self, sintoma_ids, equipo='', ubicacion='', descripcion='', registrar=True):
+    def ids_de_hipotesis(self, codigos):
+        return [f['id'] for f in self._kb.hipotesis_por_codigos(codigos)]
+
+    def iniciar(self, sintoma_ids, equipo='', ubicacion='', descripcion='', registrar=True, incidente_id=None,
+                registrado_por=None, descartadas=()):
+        """Abre una ronda de diagnóstico. descartadas: códigos HIP-NN que no se deben proponer."""
+        if not sintoma_ids:
+            raise ErrorNegocio('Marque al menos un síntoma para iniciar el diagnóstico.')
         motor = MotorInferencia(self._kb, self.parametros)
-        motor.iniciar(sintoma_ids)
-        consulta_id = None
+        motor.iniciar(sintoma_ids, self.ids_de_hipotesis(descartadas))
+        datos = {'equipo': equipo, 'ubicacion': ubicacion, 'descripcion': descripcion}
+        diagnostico_id = None
         if registrar:
-            consulta_id = self._consultas.crear(equipo, ubicacion, descripcion, self.parametros.como_texto())
+            diagnostico_id = self._diagnosticos.crear(incidente_id, registrado_por, self.parametros.como_texto(), datos,
+                                                      _texto_fecha(self._reloj()))
             for r in motor.memoria.respuestas_en_orden():
-                self._consultas.guardar_respuesta(consulta_id, r.orden, r.evidencia.id, r.escala_codigo,
-                                                  r.valor, r.origen)
-        sesion = SesionDiagnostico(motor, self._consultas, consulta_id, self.opciones_respuesta(),
-                                   {'equipo': equipo, 'ubicacion': ubicacion, 'descripcion': descripcion})
+                self._diagnosticos.guardar_respuesta(diagnostico_id, r.orden, r.evidencia.codigo, r.escala_codigo,
+                                                     r.valor, r.origen, _texto_fecha(self._reloj()))
+        sesion = SesionDiagnostico(motor, self._diagnosticos, diagnostico_id, self.opciones_respuesta(), datos,
+                                   self._reloj, incidente_id)
+        if diagnostico_id:
+            sesion.ronda = self._diagnosticos.por_id(diagnostico_id).ronda
         sesion.avanzar()
         return sesion
 
-    def reproducir(self, sintoma_ids, respuestas, equipo='', ubicacion='', descripcion='', registrar=False):
-        """Rehace una consulta a partir de sus síntomas y de la lista de respuestas [(evidencia_id, escala)].
+    def _evidencia(self, motor, evidencia_id):
+        ev = motor.memoria.evidencias.get(evidencia_id)
+        if ev is None:
+            filas = self._kb.evidencias_por_ids([evidencia_id])
+            if not filas:
+                raise ErrorNegocio(f'La evidencia {evidencia_id} no existe en la base de conocimiento.')
+            ev = evidencia_desde(filas[0])
+        return ev
+
+    def reproducir(self, sintoma_ids, respuestas, equipo='', ubicacion='', descripcion='', registrar=False,
+                   incidente_id=None, registrado_por=None, descartadas=()):
+        """Rehace una ronda a partir de sus síntomas y de la lista de respuestas [(evidencia_id, escala)].
 
         Lo usa el servicio web, que no guarda estado entre peticiones (AWS Lambda): cada petición trae
         todo lo respondido y el motor vuelve a razonar desde cero, con las mismas consultas granulares.
-        Con registrar=True la consulta y sus respuestas quedan guardadas en la base.
+        Con registrar=True la ronda y sus respuestas quedan guardadas en sedati_trx.
         """
-        sesion = self.iniciar(sintoma_ids, equipo, ubicacion, descripcion, registrar=registrar)
+        sesion = self.iniciar(sintoma_ids, equipo, ubicacion, descripcion, registrar, incidente_id, registrado_por,
+                              descartadas)
         motor = sesion.motor
         for evidencia_id, escala in respuestas:
-            ev = motor.memoria.evidencias.get(evidencia_id)
-            if ev is None:
-                filas = self._kb.evidencias_por_ids([evidencia_id])
-                if not filas:
-                    raise ValueError(f'La evidencia {evidencia_id} no existe en la base de conocimiento.')
-                ev = evidencia_desde(filas[0])
+            ev = self._evidencia(motor, evidencia_id)
             try:
                 opcion = sesion.opcion(escala)
             except StopIteration:
-                raise ValueError(f'La respuesta «{escala}» no está en la escala de respuestas.') from None
+                raise ErrorNegocio(f'La respuesta «{escala}» no está en la escala de respuestas.') from None
             previa = motor.memoria.respuestas.get(ev.id)
             origen = 'SINTOMA_INICIAL' if previa and previa.origen == 'SINTOMA_INICIAL' else 'PREGUNTA'
             motor.responder(ev, opcion, origen)
-            if sesion.consulta_id:
-                r = motor.memoria.respuestas[ev.id]
-                self._consultas.guardar_respuesta(sesion.consulta_id, r.orden, ev.id, opcion.codigo,
-                                                  opcion.valor, origen)
+            sesion._guardar(ev, opcion, origen)
         sesion.avanzar()
         return sesion
 
     def historial(self):
-        return self._consultas.listar()
+        return self._diagnosticos.listar()
 
-    def reconstruir(self, consulta_id):
-        """Vuelve a ejecutar una consulta guardada para ver su razonamiento (sin modificarla)."""
-        datos = self._consultas.obtener(consulta_id)
-        if not datos:
-            return None
-        c = datos['consulta']
-        iniciales = [r['evidencia_id'] for r in datos['respuestas'] if r['origen'] == 'SINTOMA_INICIAL']
-        sesion = self.iniciar(iniciales, c.get('equipo') or '', c.get('ubicacion') or '',
-                              c.get('descripcion') or '', registrar=False)
-        sesion.consulta_id = c['id']
-        for r in datos['respuestas']:
-            if r['origen'] == 'PREGUNTA':
-                ev = sesion.motor.memoria.evidencias.get(r['evidencia_id'])
-                if ev is None:
-                    ev = evidencia_desde(self._kb.evidencias_por_ids([r['evidencia_id']])[0])
-                sesion.motor.responder(ev, sesion.opcion(r['escala_codigo']))
-        sesion.finalizada = c['estado'] != 'EN_CURSO'
-        sesion.avanzar()
+    def entradas_guardadas(self, diagnostico_id):
+        """(síntomas iniciales, respuestas [(evidencia_id, escala)]) de una ronda guardada."""
+        respuestas = self._diagnosticos.respuestas(diagnostico_id)
+        ids = {f['codigo']: f['id'] for f in self._kb.evidencias_por_codigos([r.evidencia_codigo for r in respuestas])}
+        iniciales = [ids[r.evidencia_codigo] for r in respuestas if r.origen == 'SINTOMA_INICIAL' and r.evidencia_codigo in ids]
+        preguntas = [(ids[r.evidencia_codigo], r.escala_codigo) for r in respuestas
+                     if r.origen == 'PREGUNTA' and r.evidencia_codigo in ids]
+        return iniciales, preguntas
+
+    def reconstruir(self, diagnostico_id, descartadas=()):
+        """Vuelve a ejecutar una ronda guardada para ver su razonamiento (sin modificarla)."""
+        d = self._diagnosticos.por_id(diagnostico_id)
+        if not d:
+            raise NoEncontrado(f'No existe el diagnóstico {diagnostico_id}.')
+        iniciales, preguntas = self.entradas_guardadas(diagnostico_id)
+        if not iniciales:
+            raise ErrorNegocio(f'El diagnóstico {diagnostico_id} no tiene síntomas registrados.')
+        sesion = self.reproducir(iniciales, preguntas, d.equipo_texto or '', d.ubicacion_texto or '',
+                                 d.descripcion or '', registrar=False, descartadas=descartadas)
+        sesion.diagnostico_id = d.id
+        sesion.incidente_id = d.incidente_id
+        sesion.ronda = d.ronda
+        sesion.finalizada = d.estado != 'EN_CURSO'
+        sesion.datos['incidente'] = d.incidente_codigo
         return sesion
 
 
 class ServicioConocimiento:
     """Consulta de la base de conocimiento para la pantalla de exploración."""
 
-    def __init__(self, repo_conocimiento):
-        self._kb = repo_conocimiento
+    def __init__(self, dao_conocimiento):
+        self._kb = dao_conocimiento
 
     def estadisticas(self):
         return self._kb.estadisticas()
 
-    def hipotesis(self):
-        return self._kb.resumen_hipotesis()
+    def hipotesis(self, incluir_inactivas=False):
+        return self._kb.resumen_hipotesis(incluir_inactivas)
 
-    def granulos_de(self, hipotesis_id):
-        return list(granulos_desde(self._kb.condiciones_de_hipotesis(hipotesis_id)).values())
+    def granulos_de(self, hipotesis_id, incluir_inactivos=False):
+        filas = self._kb.condiciones_de_hipotesis(hipotesis_id, incluir_inactivos)
+        granulos = list(granulos_desde(filas).values())
+        activos = {f['regla']: bool(f['granulo_activo']) for f in filas}
+        for g in granulos:
+            g.activo = activos.get(g.regla, True)
+        return granulos
 
-    def evidencias(self):
-        return self._kb.listar_evidencias()
+    def evidencias(self, incluir_inactivas=False):
+        return self._kb.listar_evidencias(incluir_inactivas)

@@ -144,8 +144,10 @@ class AplicacionSEDATI(ctk.CTk):
             self.mostrar('inicio')
 
     def abrir_consulta_guardada(self, consulta_id):
-        sesion = self.diagnostico.reconstruir(consulta_id)
-        if sesion is None:
+        try:
+            sesion = self.diagnostico.reconstruir(consulta_id)
+        except Exception as error:  # noqa: BLE001 - se informa al usuario
+            messagebox.showerror('SEDATI', str(error), parent=self)
             return
         if not sesion.finalizada:
             if self._hay_consulta_abierta() and self.sesion.consulta_id != consulta_id:

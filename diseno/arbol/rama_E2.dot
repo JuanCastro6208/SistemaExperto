@@ -1,0 +1,26 @@
+digraph "rama_E2" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="E2 · Dispositivo USB no reconocido\n(P-12)", shape=box, style="rounded,filled,bold", fillcolor="#F3E8FD", color="#8E6CEF", fontsize=11];
+  n1 [label="el dispositivo USB no es\nreconocido\n[E-074]"];
+  raiz -> n1 [label="If"];
+  n2 [label="otros puertos del equipo\nsí lo reconocen\n[E-075]"];
+  n1 -> n2 [label="And"];
+  h_R41 [label="R-41 · FC 85 %\nla falla está en el puerto\nutilizado o en su alimentación", fillcolor="#F3E8FD", color="#8E6CEF", shape=note, style="filled"];
+  n2 -> h_R41 [label="Then", color="#8E6CEF"];
+  n3 [label="ningún puerto del equipo\nlo reconoce\n[E-076]"];
+  n1 -> n3 [label="And"];
+  n4 [label="el dispositivo funciona en\notro equipo\n[E-068]"];
+  n3 -> n4 [label="And"];
+  h_R42 [label="R-42 · FC 80 %\nla falla está en el\ncontrolador USB del sistema", fillcolor="#F3E8FD", color="#8E6CEF", shape=note, style="filled"];
+  n4 -> h_R42 [label="Then", color="#8E6CEF"];
+  n5 [label="el sistema muestra un\nmensaje de restricción de\nmedios extraíbles\n[E-077]"];
+  n1 -> n5 [label="And"];
+  h_R43 [label="R-43 · FC 90 %\nla causa corresponde a una\npolítica institucional", fillcolor="#F3E8FD", color="#8E6CEF", shape=note, style="filled"];
+  n5 -> h_R43 [label="Then", color="#8E6CEF"];
+  n6 [label="tampoco es reconocido en\notro equipo\n[E-078]"];
+  n1 -> n6 [label="And"];
+  h_R44 [label="R-44 · FC 90 %\nla falla está en el\ndispositivo", fillcolor="#F3E8FD", color="#8E6CEF", shape=note, style="filled"];
+  n6 -> h_R44 [label="Then", color="#8E6CEF"];
+}

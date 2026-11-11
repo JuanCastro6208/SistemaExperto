@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "SEDATI · servidor web (http://127.0.0.1:8000)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/servidor_web.py",
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONIOENCODING": "utf-8" },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "SEDATI · pruebas automáticas",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "unittest",
+      "args": ["discover", "-s", "tests", "-v"],
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONIOENCODING": "utf-8" },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "SEDATI · aplicación de escritorio",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ]
+}

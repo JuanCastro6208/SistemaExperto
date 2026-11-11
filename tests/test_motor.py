@@ -9,8 +9,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from datetime import datetime  # noqa: E402
+
 from sedati.configuracion import ParametrosMotor  # noqa: E402
-from sedati.datos import ConexionSQLite, RepositorioConocimiento, RepositorioConsultas  # noqa: E402
+from sedati.datos import FabricaDAO  # noqa: E402
+from sedati.datos.conexion import SCRIPTS_SQLITE_KB, SCRIPTS_SQLITE_TRX, ConexionSQLite  # noqa: E402
 from sedati.negocio import ServicioDiagnostico  # noqa: E402
 from sedati.negocio import certeza  # noqa: E402
 
@@ -46,15 +49,18 @@ class BaseSEDATI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._dir = tempfile.TemporaryDirectory()
-        cls.cx = ConexionSQLite(Path(cls._dir.name) / 'prueba.db')
-        cls.kb = RepositorioConocimiento(cls.cx)
-        cls.consultas = RepositorioConsultas(cls.cx)
-        cls.servicio = ServicioDiagnostico(cls.kb, cls.consultas, ParametrosMotor())
+        cls.cx = ConexionSQLite(Path(cls._dir.name) / 'kb.db', SCRIPTS_SQLITE_KB)
+        cls.trx = ConexionSQLite(Path(cls._dir.name) / 'trx.db', SCRIPTS_SQLITE_TRX)
+        cls.fabrica = FabricaDAO(cls.cx, cls.trx)
+        cls.kb = cls.fabrica.conocimiento()
+        cls.consultas = cls.fabrica.diagnosticos()
+        cls.servicio = ServicioDiagnostico(cls.kb, cls.consultas, cls.fabrica.catalogo(), ParametrosMotor(),
+                                           lambda: datetime(2026, 11, 11, 9, 0))
         cls.ids = {f['codigo']: f['id'] for f in cls.cx.consultar('SELECT id, codigo FROM evidencia')}
 
     @classmethod
     def tearDownClass(cls):
-        cls.cx.cerrar()
+        cls.fabrica.cerrar()
         cls._dir.cleanup()
 
     def simular(self, sintomas, verdad, registrar=False):
@@ -171,12 +177,22 @@ class PruebasPersistencia(BaseSEDATI):
         nombre, sintomas, verdad, esperada = CASOS[0]
         sesion = self.simular(sintomas, verdad, registrar=True)
         top = sesion.finalizar()
-        guardada = self.consultas.obtener(sesion.consulta_id)
-        self.assertEqual(guardada['consulta']['estado'], 'FINALIZADA')
-        self.assertEqual(len(guardada['hipotesis']), 5)
-        self.assertEqual(guardada['hipotesis'][0]['codigo'], esperada)
-        otra = self.servicio.reconstruir(sesion.consulta_id)
+        diagnostico = self.consultas.por_id(sesion.diagnostico_id)
+        self.assertEqual(diagnostico.estado, 'FINALIZADO')
+        propuestas = self.consultas.hipotesis(sesion.diagnostico_id)
+        self.assertEqual(len(propuestas), 5)
+        self.assertEqual(propuestas[0].hipotesis_codigo, esperada)
+        self.assertTrue(propuestas[0].granulo_codigo.startswith('R-'))
+        self.assertEqual(propuestas[0].granulo_version, 1)
+        otra = self.servicio.reconstruir(sesion.diagnostico_id)
         self.assertEqual([r.hipotesis.id for r in otra.resultado()], [r.hipotesis.id for r in top])
+
+    def test_las_hipotesis_descartadas_no_se_proponen(self):
+        nombre, sintomas, verdad, esperada = CASOS[2]          # equipo que no enciende por la fuente
+        sesion = self.servicio.iniciar([self.ids[c] for c in sintomas], registrar=False, descartadas=[esperada])
+        codigos = [r.hipotesis.codigo for r in sesion.resultado()]
+        self.assertNotIn(esperada, codigos)
+        self.assertEqual(len(codigos), 5)
 
 
 if __name__ == '__main__':

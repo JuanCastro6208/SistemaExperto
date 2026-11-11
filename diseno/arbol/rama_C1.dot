@@ -1,0 +1,30 @@
+digraph "rama_C1" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="C1 · Sistema operativo no inicia\n(P-03)", shape=box, style="rounded,filled,bold", fillcolor="#FEF7E0", color="#B7791F", fontsize=11];
+  n1 [label="el sistema operativo no\ninicia\n[E-034]"];
+  raiz -> n1 [label="If"];
+  n2 [label="aparece el mensaje de\ndispositivo de arranque no\nencontrado\n[E-035]"];
+  n1 -> n2 [label="And"];
+  n3 [label="el disco no es detectado\nen la BIOS/UEFI\n[E-036]"];
+  n2 -> n3 [label="And"];
+  h_R18 [label="R-18 · FC 90 %\nla falla está en el disco o en\nsu conexión", fillcolor="#FEF7E0", color="#B7791F", shape=note, style="filled"];
+  n3 -> h_R18 [label="Then", color="#B7791F"];
+  n4 [label="el disco sí es detectado\nen la BIOS/UEFI\n[E-037]"];
+  n2 -> n4 [label="And"];
+  h_R19 [label="R-19 · FC 85 %\nla falla está en el registro o\nla partición de arranque", fillcolor="#FEF7E0", color="#B7791F", shape=note, style="filled"];
+  n4 -> h_R19 [label="Then", color="#B7791F"];
+  n5 [label="se presenta el ciclo de\nreparación automática\n[E-038]"];
+  n1 -> n5 [label="And"];
+  n6 [label="se aplicó una\nactualización en las\núltimas setenta y dos\nhoras\n[E-039]"];
+  n5 -> n6 [label="And"];
+  h_R20 [label="R-20 · FC 80 %\nla falla está en la\nactualización aplicada", fillcolor="#FEF7E0", color="#B7791F", shape=note, style="filled"];
+  n6 -> h_R20 [label="Then", color="#B7791F"];
+  n7 [label="aparece pantalla azul\ndurante el arranque\n[E-040]"];
+  n1 -> n7 [label="And"];
+  n8 [label="no se registran\nactualizaciones recientes\n[E-041]"];
+  n7 -> n8 [label="And"];
+  h_R21 [label="R-21 · FC 70 %\nla falla está en archivos del\nsistema corruptos o en un\ncontrolador incompatible", fillcolor="#FEF7E0", color="#B7791F", shape=note, style="filled"];
+  n8 -> h_R21 [label="Then", color="#B7791F"];
+}

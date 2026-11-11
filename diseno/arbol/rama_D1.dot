@@ -1,0 +1,30 @@
+digraph "rama_D1" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="D1 · Disco duro no reconocido\n(P-07)", shape=box, style="rounded,filled,bold", fillcolor="#FCE8E6", color="#C9473D", fontsize=11];
+  n1 [label="el disco no es reconocido\n[E-053]"];
+  raiz -> n1 [label="If"];
+  n2 [label="no aparece en la BIOS/UEFI\n[E-054]"];
+  n1 -> n2 [label="And"];
+  n3 [label="tampoco es reconocido con\notro cable y otro puerto\n[E-055]"];
+  n2 -> n3 [label="And"];
+  h_R29 [label="R-29 · FC 80 %\nla falla está en el disco", fillcolor="#FCE8E6", color="#C9473D", shape=note, style="filled"];
+  n3 -> h_R29 [label="Then", color="#C9473D"];
+  n4 [label="el disco sí es reconocido\nen otro equipo\n[E-056]"];
+  n2 -> n4 [label="And"];
+  h_R30 [label="R-30 · FC 85 %\nla falla está en el cable de\nconexión o en el puerto de la\nplaca", fillcolor="#FCE8E6", color="#C9473D", shape=note, style="filled"];
+  n4 -> h_R30 [label="Then", color="#C9473D"];
+  n5 [label="el disco no es reconocido\npor el sistema operativo\n[E-057]"];
+  raiz -> n5 [label="If"];
+  n6 [label="el disco sí aparece en la\nBIOS/UEFI\n[E-058]"];
+  n5 -> n6 [label="And"];
+  n7 [label="la unidad aparece sin\nletra en el administrador\nde discos\n[E-059]"];
+  n6 -> n7 [label="And"];
+  h_R31 [label="R-31 · FC 90 %\nla falla está en la asignación\nde la partición", fillcolor="#FCE8E6", color="#C9473D", shape=note, style="filled"];
+  n7 -> h_R31 [label="Then", color="#C9473D"];
+  n8 [label="el sistema solicita\nformatear la unidad al\nconectarla\n[E-060]"];
+  n5 -> n8 [label="And"];
+  h_R32 [label="R-32 · FC 85 %\nla falla está en el sistema de\narchivos", fillcolor="#FCE8E6", color="#C9473D", shape=note, style="filled"];
+  n8 -> h_R32 [label="Then", color="#C9473D"];
+}

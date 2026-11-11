@@ -1,0 +1,32 @@
+digraph "rama_G5" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="G5 · Sin acceso a recursos\ncompartidos\n(P-24)", shape=box, style="rounded,filled,bold", fillcolor="#FFF0E0", color="#D9822B", fontsize=11];
+  n1 [label="el usuario no accede al\nrecurso compartido\n[E-145]"];
+  raiz -> n1 [label="If"];
+  n2 [label="el sistema solicita\ncredenciales de forma\nrepetida\n[E-146]"];
+  n1 -> n2 [label="And"];
+  n3 [label="el equipo conserva\ncredenciales almacenadas\nanteriores\n[E-147]"];
+  n2 -> n3 [label="And"];
+  h_R85 [label="R-85 · FC 85 %\nla falla está en las\ncredenciales almacenadas", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n3 -> h_R85 [label="Then", color="#D9822B"];
+  n4 [label="el sistema informa acceso\ndenegado\n[E-148]"];
+  n1 -> n4 [label="And"];
+  n5 [label="la cuenta no pertenece al\ngrupo autorizado\n[E-149]"];
+  n4 -> n5 [label="And"];
+  h_R86 [label="R-86 · FC 90 %\nla falla está en los permisos\nasignados al usuario", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n5 -> h_R86 [label="Then", color="#D9822B"];
+  n6 [label="el sistema informa que no\nencuentra la ruta de red\n[E-150]"];
+  n1 -> n6 [label="And"];
+  n7 [label="el servidor no responde a\nla prueba de comunicación\n[E-151]"];
+  n6 -> n7 [label="And"];
+  h_R87 [label="R-87 · FC 90 %\nla falla está en la\ndisponibilidad del servidor", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n7 -> h_R87 [label="Then", color="#D9822B"];
+  n8 [label="el servidor responde por\ndirección IP\n[E-152]"];
+  n1 -> n8 [label="And"];
+  n9 [label="el servidor no responde\npor nombre\n[E-153]"];
+  n8 -> n9 [label="And"];
+  h_R88 [label="R-88 · FC 85 %\nla falla está en la resolución\nde nombres del equipo", fillcolor="#FFF0E0", color="#D9822B", shape=note, style="filled"];
+  n9 -> h_R88 [label="Then", color="#D9822B"];
+}

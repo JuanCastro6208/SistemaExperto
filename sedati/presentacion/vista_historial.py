@@ -29,11 +29,11 @@ class VistaHistorial(ctk.CTkFrame):
 
     def cargar(self):
         filas = self.app.diagnostico.historial()
-        self.tabla.cargar((c['id'], (c['id'], str(c['fecha_inicio'])[:16], c['equipo'] or '—', c['ubicacion'] or '—',
-                                     c['estado'].replace('_', ' ').capitalize(), c['total_preguntas'],
-                                     f"{c['hipotesis_codigo']} · {c['hipotesis_nombre']}" if c['hipotesis_codigo']
-                                     else '—',
-                                     f"{c['probabilidad']:.1%}" if c['probabilidad'] is not None else '—'))
+        self.tabla.cargar((c.id, (c.id, str(c.fecha_inicio)[:16], c.incidente_codigo or c.equipo_texto or '—',
+                                  c.ubicacion_texto or (f'Ronda {c.ronda}' if c.incidente_id else '—'),
+                                  c.estado.replace('_', ' ').capitalize(), c.total_preguntas,
+                                  f"{c.hipotesis_codigo} · {c.hipotesis_nombre}" if c.hipotesis_codigo else '—',
+                                  f"{c.probabilidad:.1%}" if c.probabilidad is not None else '—'))
                           for c in filas)
         self.vacio.configure(text='' if filas else 'Todavía no hay consultas registradas.')
 

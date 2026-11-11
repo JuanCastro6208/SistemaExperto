@@ -1,0 +1,28 @@
+digraph "rama_A1" {
+  graph [rankdir=LR, splines=true, nodesep=0.22, ranksep=0.55, fontname="DejaVu Sans", bgcolor="white", pad=0.2];
+  node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#5B6676", fontname="DejaVu Sans", fontsize=10, margin="0.10,0.05"];
+  edge [color="#8A94A6", fontname="DejaVu Sans", fontsize=8, fontcolor="#5B6676", arrowsize=0.6];
+  raiz [label="A1 · Equipo no enciende\n(P-01)", shape=box, style="rounded,filled,bold", fillcolor="#E8F0FE", color="#1F6FEB", fontsize=11];
+  n1 [label="el equipo no enciende\n[E-001]"];
+  raiz -> n1 [label="If"];
+  n2 [label="no hay tensión en la toma\neléctrica\n[E-002]"];
+  n1 -> n2 [label="And"];
+  h_R01 [label="R-01 · FC 90 %\nla falla está en la red\neléctrica, el regulador o la\nmultitoma", fillcolor="#E8F0FE", color="#1F6FEB", shape=note, style="filled"];
+  n2 -> h_R01 [label="Then", color="#1F6FEB"];
+  n3 [label="hay tensión en la toma\neléctrica\n[E-003]"];
+  n1 -> n3 [label="And"];
+  n4 [label="el equipo no responde con\notro cable de poder\nverificado\n[E-004]"];
+  n3 -> n4 [label="And"];
+  h_R02 [label="R-02 · FC 85 %\nla falla está en la fuente de\nalimentación", fillcolor="#E8F0FE", color="#1F6FEB", shape=note, style="filled"];
+  n4 -> h_R02 [label="Then", color="#1F6FEB"];
+  n5 [label="la fuente arranca al\npuentear el conector de\nencendido\n[E-005]"];
+  n3 -> n5 [label="And"];
+  h_R03 [label="R-03 · FC 80 %\nla falla está en el pulsador\nde encendido del chasis", fillcolor="#E8F0FE", color="#1F6FEB", shape=note, style="filled"];
+  n5 -> h_R03 [label="Then", color="#1F6FEB"];
+  n6 [label="los ventiladores giran al\naccionar el botón\n[E-006]"];
+  n1 -> n6 [label="And"];
+  n7 [label="no se produce la señal\naudible de POST\n[E-007]"];
+  n6 -> n7 [label="And"];
+  h_R04 [label="R-04 · FC 75 %\nla falla está en la memoria\nRAM, el procesador o la placa\nmadre", fillcolor="#E8F0FE", color="#1F6FEB", shape=note, style="filled"];
+  n7 -> h_R04 [label="Then", color="#1F6FEB"];
+}
