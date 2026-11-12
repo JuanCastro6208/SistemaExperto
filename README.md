@@ -101,16 +101,7 @@ sedati/
 
 Las dependencias van en un solo sentido: servicio / presentación → negocio → datos.
 
-## 5. Diseño
-
-| Diagrama | Archivo |
-|---|---|
-| Árbol de decisión: general y una figura por rama | `diseno/arbol/*.png` (`python diseno/generar_arbol.py`, a partir de la base) |
-| Caja negra | `diseno/caja_negra.png` |
-| Flujo de datos | `diseno/dfd_nivel0.png`, `diseno/dfd_nivel1.png` |
-| Modelo relacional de la base de conocimiento | `diseno/mr_sedati_kb.png` |
-
-## 6. API REST
+## 5. API REST
 
 Ninguna ruta pide autenticación. La lista completa aparece en la pestaña **Servicio** y en `RUTAS`, al final de
 `sedati/servicio/api.py`.
@@ -133,7 +124,7 @@ curl -X POST http://127.0.0.1:8000/api/diagnostico -H "Content-Type: application
      -d '{"sintomas": [1], "respuestas": []}'
 ```
 
-## 7. Desplegar en AWS
+## 6. Desplegar en AWS
 
 | Servicio | Qué aloja |
 |---|---|
