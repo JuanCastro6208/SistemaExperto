@@ -9,8 +9,10 @@
 --   sedati_aplicacion  lee la base de conocimiento y registra los diagnósticos
 -- =====================================================================
 
-DROP ROLE IF EXISTS sedati_solicitante, sedati_administrador, sedati_aplicacion;
-CREATE ROLE sedati_aplicacion;
+-- Roles de versiones anteriores. sedati_aplicacion no se borra: si ya existe, se conserva para que
+-- la cuenta del servicio no pierda sus permisos al reinstalar las bases.
+DROP ROLE IF EXISTS sedati_solicitante, sedati_administrador;
+CREATE ROLE IF NOT EXISTS sedati_aplicacion;
 
 GRANT SELECT, INSERT, UPDATE ON sedati_trx.* TO sedati_aplicacion;
 GRANT SELECT ON sedati_kb.*                  TO sedati_aplicacion;
