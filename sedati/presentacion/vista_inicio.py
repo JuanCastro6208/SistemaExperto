@@ -1,4 +1,4 @@
-"""Vista «Nuevo diagnóstico»: datos del equipo y síntomas iniciales."""
+"""Vista «Nuevo diagnóstico»: nombre de quien consulta, datos del equipo y síntomas iniciales."""
 import customtkinter as ctk
 
 from . import tema
@@ -13,7 +13,7 @@ class VistaInicio(ctk.CTkFrame):
         self.textos = {}         # evidencia_id -> enunciado
 
         Encabezado(self, 'Nuevo diagnóstico',
-                   'Registre el equipo y marque los síntomas que observa. A partir de ellos el motor de inferencia '
+                   'Escriba su nombre y marque los síntomas que observa. A partir de ellos el motor de inferencia '
                    'consulta la base de conocimiento y hace solo las preguntas necesarias.').pack(fill='x', pady=(0, 14))
 
         cuerpo = ctk.CTkFrame(self, fg_color='transparent')
@@ -23,8 +23,11 @@ class VistaInicio(ctk.CTkFrame):
         cuerpo.grid_rowconfigure(0, weight=1)
 
         # ---------------------------------------------------------------- datos del equipo
-        izq = Tarjeta(cuerpo, 'Datos del equipo', 'Opcionales: quedan en el registro de la consulta.')
+        izq = Tarjeta(cuerpo, '¿Cómo te llamas?', 'Su nombre queda en el registro de la consulta. '
+                                                  'Los datos del equipo son opcionales.')
         izq.grid(row=0, column=0, sticky='nsew', padx=(0, 14))
+        self.nombre = self._campo(izq, 'Nombre', 'Ej.: Ana Rodríguez')
+        self.nombre.bind('<KeyRelease>', lambda _e: self._actualizar_resumen())
         self.equipo = self._campo(izq, 'Código de inventario', 'Ej.: PC-SALA2-014')
         self.ubicacion = self._campo(izq, 'Ubicación', 'Ej.: Sala de cómputo 2')
         ctk.CTkLabel(izq, text='Descripción de la falla', font=tema.fuente(12, 'bold'), text_color=tema.TEXTO,
@@ -103,7 +106,10 @@ class VistaInicio(ctk.CTkFrame):
 
     def _actualizar_resumen(self):
         sel = self.seleccionados()
-        if sel:
+        if sel and not self.nombre.get().strip():
+            self.resumen.configure(text='Escriba su nombre para iniciar.', text_color=tema.TEXTO_SUAVE)
+            self.boton_iniciar.configure(state='disabled')
+        elif sel:
             self.resumen.configure(text=f'{len(sel)} síntoma(s): ' + '; '.join(self.textos[i] for i in sel),
                                    text_color=tema.TEXTO)
             self.boton_iniciar.configure(state='normal')
@@ -121,10 +127,11 @@ class VistaInicio(ctk.CTkFrame):
 
     def _iniciar(self):
         sel = self.seleccionados()
-        if not sel:
+        nombre = self.nombre.get().strip()
+        if not sel or not nombre:
             return
         self.app.iniciar_consulta(sel, self.equipo.get().strip(), self.ubicacion.get().strip(),
-                                  self.descripcion.get('1.0', 'end').strip())
+                                  self.descripcion.get('1.0', 'end').strip(), nombre)
 
     def al_cambiar_tema(self):
         pass

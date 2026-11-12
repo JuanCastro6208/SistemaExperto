@@ -1,8 +1,6 @@
 """Fábrica de DAO: entrega a la capa de negocio las implementaciones que corresponden al motor."""
-from .sql_conocimiento import AdministracionConocimientoDAOSQL, ConocimientoDAOSQL
-from .sql_transaccional import (AuditoriaDAOSQL, BitacoraAccesoDAOSQL, CatalogoDAOSQL, CitaDAOSQL, DiagnosticoDAOSQL,
-                                EquipoDAOSQL, EscalamientoDAOSQL, IncidenteDAOSQL, IndicadoresDAOSQL,
-                                IntervencionDAOSQL, UsuarioDAOSQL)
+from .sql_conocimiento import ConocimientoDAOSQL
+from .sql_transaccional import CatalogoDAOSQL, DiagnosticoDAOSQL
 
 
 class FabricaDAO:
@@ -21,42 +19,12 @@ class FabricaDAO:
     def conocimiento(self):
         return ConocimientoDAOSQL(self.conexion_kb)
 
-    def administracion_conocimiento(self):
-        return AdministracionConocimientoDAOSQL(self.conexion_kb)
-
     # sedati_trx
     def catalogo(self):
         return CatalogoDAOSQL(self.conexion_trx)
 
-    def usuarios(self):
-        return UsuarioDAOSQL(self.conexion_trx)
-
-    def bitacora_acceso(self):
-        return BitacoraAccesoDAOSQL(self.conexion_trx)
-
-    def equipos(self):
-        return EquipoDAOSQL(self.conexion_trx)
-
-    def incidentes(self):
-        return IncidenteDAOSQL(self.conexion_trx)
-
-    def citas(self):
-        return CitaDAOSQL(self.conexion_trx)
-
     def diagnosticos(self):
         return DiagnosticoDAOSQL(self.conexion_trx)
-
-    def intervenciones(self):
-        return IntervencionDAOSQL(self.conexion_trx)
-
-    def escalamientos(self):
-        return EscalamientoDAOSQL(self.conexion_trx)
-
-    def auditoria(self):
-        return AuditoriaDAOSQL(self.conexion_trx)
-
-    def indicadores(self):
-        return IndicadoresDAOSQL(self.conexion_trx)
 
     def verificar(self):
         self.conexion_kb.verificar()

@@ -7,7 +7,6 @@ Variables de entorno de la función:
     SEDATI_MYSQL_HOST=<punto de enlace de Amazon RDS>
     SEDATI_MYSQL_USUARIO, SEDATI_MYSQL_CONTRASENA
     SEDATI_MYSQL_BASE_KB=sedati_kb, SEDATI_MYSQL_BASE_TRX=sedati_trx
-    SEDATI_SECRETO=<clave aleatoria larga para firmar las sesiones>
     SEDATI_CORS_ORIGEN=<URL del sitio web> (opcional; por defecto *)
 
 Sin SEDATI_MOTOR_BD=mysql usa SQLite en /tmp: las dos bases se crean al arrancar a partir de los scripts
@@ -31,7 +30,7 @@ def _cabeceras():
         'Content-Type': 'application/json; charset=utf-8',
         'Access-Control-Allow-Origin': os.environ.get('SEDATI_CORS_ORIGEN', '*'),
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type',
     }
 
 

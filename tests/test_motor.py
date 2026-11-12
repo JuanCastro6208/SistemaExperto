@@ -65,7 +65,7 @@ class BaseSEDATI(unittest.TestCase):
 
     def simular(self, sintomas, verdad, registrar=False):
         """El motor pregunta y se responde con la verdad del caso (lo no previsto se responde «No»)."""
-        sesion = self.servicio.iniciar([self.ids[c] for c in sintomas], registrar=registrar)
+        sesion = self.servicio.iniciar([self.ids[c] for c in sintomas], registrar=registrar, nombre='Ana Rodríguez')
         while sesion.pregunta_actual is not None and not sesion.motivo_conclusion:
             e = sesion.pregunta_actual.evidencia
             sesion.responder(e, sesion.opcion(verdad.get(e.variable) or verdad.get(e.codigo) or 'NO'))
@@ -179,6 +179,7 @@ class PruebasPersistencia(BaseSEDATI):
         top = sesion.finalizar()
         diagnostico = self.consultas.por_id(sesion.diagnostico_id)
         self.assertEqual(diagnostico.estado, 'FINALIZADO')
+        self.assertEqual(diagnostico.nombre_usuario, 'Ana Rodríguez')
         propuestas = self.consultas.hipotesis(sesion.diagnostico_id)
         self.assertEqual(len(propuestas), 5)
         self.assertEqual(propuestas[0].hipotesis_codigo, esperada)
@@ -193,6 +194,28 @@ class PruebasPersistencia(BaseSEDATI):
         codigos = [r.hipotesis.codigo for r in sesion.resultado()]
         self.assertNotIn(esperada, codigos)
         self.assertEqual(len(codigos), 5)
+
+
+class PruebasArbolDeDecision(BaseSEDATI):
+    def test_el_arbol_empieza_por_energia_y_arranque(self):
+        arbol = self.servicio.arbol()
+        self.assertEqual([c['codigo'] for c in arbol], list('ABCDEFG'))
+        self.assertEqual(arbol[0]['nombre'], 'Energía y arranque')
+        self.assertEqual([r['codigo'] for r in arbol[0]['ramas']], ['A1', 'A2', 'A3'])
+        self.assertEqual(arbol[0]['ramas'][0]['sintomas'][0]['codigo'], 'E-001')   # el equipo no enciende
+        self.assertEqual(sum(len(c['ramas']) for c in arbol), 22)
+
+    def test_registrar_exige_el_nombre(self):
+        from sedati.negocio import ErrorNegocio
+        with self.assertRaises(ErrorNegocio):
+            self.servicio.iniciar([self.ids['E-001']], registrar=True, nombre='   ')
+        with self.assertRaises(ErrorNegocio):
+            self.servicio.iniciar([self.ids['E-001']], registrar=False, categoria='Z')
+        sesion = self.servicio.iniciar([self.ids['E-001']], registrar=True, nombre='  Luis   Pérez ', categoria='a')
+        d = self.consultas.por_id(sesion.diagnostico_id)
+        self.assertEqual((d.nombre_usuario, d.categoria_codigo), ('Luis Pérez', 'A'))
+        self.assertIn(d.id, [x.id for x in self.servicio.historial('luis pérez')])
+        self.assertNotIn(d.id, [x.id for x in self.servicio.historial('Otra Persona')])
 
 
 if __name__ == '__main__':

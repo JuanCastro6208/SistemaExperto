@@ -2,7 +2,7 @@
 
 Se conserva por compatibilidad con la guía de despliegue: hace lo mismo que bd/instalar_mysql.py.
 
-    python aws/cargar_base_conocimiento.py --host <endpoint-rds> --usuario admin --usuario-servicio sedati_app --demo
+    python aws/cargar_base_conocimiento.py --host <endpoint-rds> --usuario admin --usuario-servicio sedati_app
 """
 import runpy
 import sys

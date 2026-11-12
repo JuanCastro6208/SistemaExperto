@@ -19,7 +19,7 @@ class VistaHistorial(ctk.CTkFrame):
         caja = Tarjeta(self)
         caja.pack(fill='both', expand=True)
         self.tabla = Tabla(caja, [('id', '#', 50, False), ('fecha', 'Fecha', 150, False),
-                                  ('equipo', 'Equipo', 130, False), ('ubicacion', 'Ubicación', 170, False),
+                                  ('nombre', 'Consultó', 160, False), ('equipo', 'Equipo', 140, False),
                                   ('estado', 'Estado', 100, False), ('preg', 'Preguntas', 80, False),
                                   ('hip', 'Hipótesis principal', 380, True), ('prob', 'Peso', 70, False)], alto=20)
         self.tabla.pack(fill='both', expand=True, padx=12, pady=12)
@@ -29,8 +29,7 @@ class VistaHistorial(ctk.CTkFrame):
 
     def cargar(self):
         filas = self.app.diagnostico.historial()
-        self.tabla.cargar((c.id, (c.id, str(c.fecha_inicio)[:16], c.incidente_codigo or c.equipo_texto or '—',
-                                  c.ubicacion_texto or (f'Ronda {c.ronda}' if c.incidente_id else '—'),
+        self.tabla.cargar((c.id, (c.id, str(c.fecha_inicio)[:16], c.nombre_usuario or '—', c.equipo_texto or '—',
                                   c.estado.replace('_', ' ').capitalize(), c.total_preguntas,
                                   f"{c.hipotesis_codigo} · {c.hipotesis_nombre}" if c.hipotesis_codigo else '—',
                                   f"{c.probabilidad:.1%}" if c.probabilidad is not None else '—'))

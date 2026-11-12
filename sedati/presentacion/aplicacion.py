@@ -115,13 +115,13 @@ class AplicacionSEDATI(ctk.CTk):
         self.vistas[nombre].tkraise()
         self._pintar_navegacion()
 
-    def iniciar_consulta(self, sintomas, equipo, ubicacion, descripcion):
+    def iniciar_consulta(self, sintomas, equipo, ubicacion, descripcion, nombre=''):
         if self._hay_consulta_abierta():
             if not messagebox.askyesno('SEDATI', 'Hay una consulta en curso. ¿Desea cancelarla e iniciar una nueva?',
                                        parent=self):
                 return
             self.sesion.cancelar()
-        self.sesion = self.diagnostico.iniciar(sintomas, equipo, ubicacion, descripcion)
+        self.sesion = self.diagnostico.iniciar(sintomas, equipo, ubicacion, descripcion, nombre=nombre)
         self.vistas['consulta'].cargar(self.sesion)
         self.mostrar('consulta')
 

@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F6FEB'/%3E%3Cpath d='M9 20l5-8 4 6 2-3 3 5' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="estilos.css">
 </head>
-<body class="sin-sesion">
+<body class="sin-nombre">
   <header class="barra">
     <div class="marca">
       <span class="logo" aria-hidden="true">
@@ -18,169 +18,83 @@
         <small>Sistema experto de diagnóstico técnico</small>
       </div>
     </div>
-    <nav class="pestanas" id="pestanas" aria-label="Secciones"></nav>
+    <nav class="pestanas" aria-label="Secciones">
+      <button class="pestana activa" data-vista="diagnostico">Diagnóstico</button>
+      <button class="pestana" data-vista="historial">Historial</button>
+      <button class="pestana" data-vista="conocimiento">Base de conocimiento</button>
+      <button class="pestana" data-vista="servicio">Servicio</button>
+    </nav>
     <div class="estado-servicio" id="estado-servicio" title="">
       <span class="punto"></span><span class="texto">Conectando…</span>
     </div>
-    <div class="usuario-actual" id="usuario-actual" hidden>
-      <span class="avatar" id="usuario-iniciales"></span>
-      <span class="datos-usuario"><b id="usuario-nombre"></b><small id="usuario-rol"></small></span>
-      <button class="boton secundario pequeno" id="boton-contrasena" title="Cambiar contraseña">Contraseña</button>
-      <button class="boton secundario pequeno" id="boton-salir">Salir</button>
+    <div class="usuario-actual">
+      <span class="avatar" id="usuario-iniciales" aria-hidden="true"></span>
+      <span class="datos-usuario"><small>Hola,</small><b id="usuario-nombre"></b></span>
+      <button class="boton secundario pequeno" id="boton-cambiar-nombre">Cambiar nombre</button>
     </div>
   </header>
 
   <main>
-    <!-- ============================================================ ACCESO (RF-01) -->
-    <section class="vista activa" id="vista-acceso">
-      <div class="acceso">
-        <div class="tarjeta acceso-tarjeta">
-          <h1>Ingreso a SEDATI</h1>
-          <p class="ayuda">Use su correo institucional y su contraseña. Tras cinco intentos fallidos la cuenta se
-            bloquea durante quince minutos.</p>
-          <form id="form-acceso" autocomplete="on">
-            <label>Correo<input id="acceso-correo" type="email" required autocomplete="username"
-                placeholder="nombre@institucion.edu.co"></label>
-            <label>Contraseña<input id="acceso-clave" type="password" required autocomplete="current-password"></label>
-            <p class="error-formulario" id="acceso-error" role="alert"></p>
-            <button class="boton ancho" type="submit" id="boton-ingresar">Ingresar</button>
+    <!-- ============================================================ BIENVENIDA: ¿CÓMO TE LLAMAS? -->
+    <section class="vista activa" id="vista-bienvenida">
+      <div class="bienvenida">
+        <div class="tarjeta bienvenida-tarjeta">
+          <h1>¿Cómo te llamas?</h1>
+          <p class="ayuda">No necesitas cuenta ni contraseña. Tu nombre queda en el registro de los diagnósticos que
+            guardes.</p>
+          <form id="form-nombre" autocomplete="on">
+            <label>Nombre<input id="campo-nombre" maxlength="80" required autocomplete="name"
+                placeholder="Ej.: Ana Rodríguez"></label>
+            <p class="error-formulario" id="nombre-error" role="alert"></p>
+            <button class="boton ancho" type="submit">Comenzar →</button>
           </form>
-          <div class="nota demo">
-            <strong>Cuentas de demostración</strong> (contraseña <code>Sedati2026*</code>)
-            <ul>
-              <li><button class="enlace" data-demo="admin@sedati.example">admin@sedati.example</button> · Administrador</li>
-              <li><button class="enlace" data-demo="solicitante@sedati.example">solicitante@sedati.example</button> · Solicitante</li>
-            </ul>
-          </div>
         </div>
-        <div class="acceso-texto">
-          <h2>Diagnóstico de incidentes de cómputo y redes con un sistema experto basado en reglas</h2>
+        <div class="bienvenida-texto">
+          <h2>Diagnóstico de fallas de cómputo y redes con un sistema experto basado en reglas</h2>
           <ul class="lista-funciones">
-            <li><b>Solicitante</b> reporta la falla de su equipo, consulta su estado y programa la cita de atención.</li>
-            <li><b>Administrador</b> atiende el incidente con el motor de inferencia: 88 reglas If / And / Then,
-              38 hipótesis y las 5 causas más probables con su peso probabilístico.</li>
-            <li>Cada ronda de diagnóstico, solución y escalamiento queda registrada con su trazabilidad.</li>
+            <li><b>Sigue el árbol de decisión:</b> primero te pregunta si la falla es de energía y arranque; si no,
+              de video, sistema operativo, almacenamiento, periféricos, red y, por último, software y accesos.</li>
+            <li><b>Luego el motor de inferencia</b> hace solo las preguntas necesarias, con 88 reglas If / And / Then
+              y 38 hipótesis.</li>
+            <li><b>Al final</b> recibes las 5 causas más probables con su peso probabilístico, la regla que las
+              sostiene y la acción recomendada.</li>
           </ul>
         </div>
       </div>
     </section>
 
-    <!-- ============================================================ INCIDENTES (RF-02) -->
-    <section class="vista" id="vista-incidentes">
-      <div class="encabezado">
-        <div>
-          <h1 id="titulo-incidentes">Incidentes</h1>
-          <p id="subtitulo-incidentes"></p>
-        </div>
-        <div class="acciones">
-          <button class="boton secundario" id="boton-exportar" data-solo="ADMINISTRADOR">Exportar CSV</button>
-          <button class="boton" id="boton-reportar">+ Reportar incidente</button>
-        </div>
-      </div>
-      <div class="resumen-estados" id="resumen-estados"></div>
-      <form class="tarjeta filtros" id="filtros-incidentes" data-solo="ADMINISTRADOR">
-        <label>Estado<select name="estado"><option value="">Todos</option><option>ABIERTO</option>
-            <option value="EN_DIAGNOSTICO">EN DIAGNÓSTICO</option><option>ESCALADO</option><option>CERRADO</option></select></label>
-        <label>Categoría<select name="categoria"><option value="">Todas</option><option>A</option><option>B</option>
-            <option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></label>
-        <label>Responsable<select name="responsable"><option value="">Todos</option><option value="yo">Asignados a mí</option>
-            <option value="ninguno">Sin asignar</option></select></label>
-        <label>Equipo<input name="inventario" placeholder="Inventario"></label>
-        <label>Desde<input name="desde" type="date"></label>
-        <label>Hasta<input name="hasta" type="date"></label>
-        <label class="crece">Buscar<input name="texto" placeholder="Código o descripción"></label>
-        <div class="filtros-acciones"><button class="boton secundario" type="reset">Limpiar</button>
-          <button class="boton" type="submit">Filtrar</button></div>
-      </form>
-      <div class="tarjeta"><div class="tabla-desplazable alta"><table id="tabla-incidentes"></table></div></div>
-    </section>
-
-    <!-- ============================================================ DETALLE DEL INCIDENTE -->
-    <section class="vista" id="vista-incidente">
-      <div class="encabezado">
-        <div>
-          <button class="enlace volver" id="volver-incidentes">← Incidentes</button>
-          <h1 id="titulo-incidente"></h1>
-          <p id="subtitulo-incidente"></p>
-        </div>
-        <div class="acciones" id="acciones-incidente"></div>
-      </div>
-      <div class="rejilla-incidente">
-        <div class="columna">
-          <div class="tarjeta" id="tarjeta-datos-incidente"></div>
-          <div class="tarjeta" id="tarjeta-rondas" data-solo="ADMINISTRADOR"></div>
-          <div class="tarjeta" id="tarjeta-intervenciones" data-solo="ADMINISTRADOR"></div>
-        </div>
-        <div class="columna">
-          <div class="tarjeta" id="tarjeta-citas"></div>
-          <div class="tarjeta" id="tarjeta-historial-estados"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============================================================ CITAS -->
-    <section class="vista" id="vista-citas">
-      <div class="encabezado">
-        <div>
-          <h1 id="titulo-citas">Agenda de citas</h1>
-          <p id="subtitulo-citas">Visitas programadas para atender los incidentes.</p>
-        </div>
-      </div>
-      <div class="tarjeta"><div class="tabla-desplazable alta"><table id="tabla-citas"></table></div></div>
-    </section>
-
     <!-- ============================================================ DIAGNÓSTICO -->
     <section class="vista" id="vista-diagnostico">
-      <div class="banner-incidente" id="banner-incidente" hidden></div>
 
-      <!-- Paso 1: síntomas -->
-      <div class="etapa activa" id="etapa-inicio">
+      <!-- Paso 1: recorrido del árbol de decisión -->
+      <div class="etapa activa" id="etapa-arbol">
         <div class="encabezado">
           <div>
-            <h1 id="titulo-diagnostico">Nuevo diagnóstico</h1>
-            <p>Marque los síntomas que observa. El motor de inferencia consulta la base de conocimiento y hace solo
-              las preguntas necesarias para encontrar las 5 causas más probables.</p>
+            <h1>Nuevo diagnóstico</h1>
+            <p>Responde las preguntas en el orden del árbol de decisión. Cuando identifiques la categoría de la falla,
+              elige lo que ocurre y el motor de inferencia continúa con las preguntas necesarias.</p>
           </div>
         </div>
-        <div class="rejilla-inicio">
+        <div class="rejilla-arbol">
           <aside class="tarjeta">
-            <div id="caja-datos-equipo">
-              <h2>Datos del equipo</h2>
-              <p class="ayuda">Opcionales en una consulta libre. Para atender un incidente, inicie la ronda desde el
-                detalle del incidente.</p>
-              <label>Código de inventario<input id="campo-equipo" maxlength="40" placeholder="Ej.: PC-SALA2-014"></label>
-              <label>Ubicación<input id="campo-ubicacion" maxlength="100" placeholder="Ej.: Sala de cómputo 2"></label>
-              <label>Descripción de la falla<textarea id="campo-descripcion" rows="4" maxlength="2000"
-                  placeholder="Lo que reporta el usuario"></textarea></label>
-            </div>
+            <h2>Árbol de decisión</h2>
+            <p class="ayuda">Categorías en el orden en que se preguntan.</p>
+            <ol class="recorrido" id="recorrido"><li class="cargando">Cargando…</li></ol>
             <div class="nota">
               <strong>¿Cómo funciona?</strong>
               <ol>
-                <li>Marque uno o más síntomas.</li>
-                <li>Responda cada pregunta con su grado de certeza, no solo sí o no.</li>
-                <li>El motor elige la pregunta que más reduce la incertidumbre.</li>
-                <li>Recibe las 5 hipótesis más probables, la regla que las sostiene y la acción recomendada.</li>
+                <li>Responde <b>Sí</b> o <b>No</b> a cada categoría, empezando por energía y arranque.</li>
+                <li>En la categoría donde respondas <b>Sí</b>, marca lo que ocurre.</li>
+                <li>Responde cada pregunta del motor con tu grado de certeza, no solo sí o no.</li>
+                <li>Recibe las 5 hipótesis más probables y la acción recomendada.</li>
               </ol>
             </div>
           </aside>
-          <div class="tarjeta">
-            <div class="tarjeta-cabecera">
-              <div>
-                <h2>Síntomas observados</h2>
-                <p class="ayuda">Agrupados por categoría del árbol de decisión. Puede combinar categorías.</p>
-              </div>
-            </div>
-            <div class="categorias" id="lista-sintomas"><div class="cargando">Cargando catálogo…</div></div>
-            <div class="pie-acciones">
-              <span id="resumen-sintomas" class="ayuda">Marque al menos un síntoma para iniciar.</span>
-              <button class="boton secundario" id="boton-limpiar">Limpiar</button>
-              <button class="boton" id="boton-iniciar" disabled>Iniciar diagnóstico →</button>
-            </div>
-          </div>
+          <div class="tarjeta pregunta-arbol" id="tarjeta-arbol"><div class="cargando">Cargando el árbol de decisión…</div></div>
         </div>
       </div>
 
-      <!-- Paso 2: preguntas -->
+      <!-- Paso 2: preguntas del motor de inferencia -->
       <div class="etapa" id="etapa-consulta">
         <div class="encabezado">
           <div>
@@ -234,7 +148,7 @@
         <div class="rejilla-resultado">
           <div class="tarjeta">
             <h2>Las 5 hipótesis más probables</h2>
-            <p class="ayuda">Peso probabilístico normalizado sobre el diagnóstico diferencial. Seleccione una para ver
+            <p class="ayuda">Peso probabilístico normalizado sobre el diagnóstico diferencial. Selecciona una para ver
               cómo se llegó a ella.</p>
             <div id="lista-top"></div>
           </div>
@@ -247,20 +161,28 @@
       </div>
     </section>
 
-    <!-- ============================================================ BASE DE CONOCIMIENTO (RF-03) -->
+    <!-- ============================================================ HISTORIAL -->
+    <section class="vista" id="vista-historial">
+      <div class="encabezado">
+        <div>
+          <h1>Historial de diagnósticos</h1>
+          <p>Diagnósticos guardados en la base de datos. Abre uno para revisar su razonamiento o descargar el informe.</p>
+        </div>
+        <div class="acciones">
+          <label class="interruptor"><input type="checkbox" id="solo-mios" checked> Solo los míos</label>
+          <button class="boton secundario" id="boton-recargar-historial">Actualizar</button>
+        </div>
+      </div>
+      <div class="tarjeta"><div class="tabla-desplazable alta"><table id="tabla-historial"></table></div></div>
+    </section>
+
+    <!-- ============================================================ BASE DE CONOCIMIENTO -->
     <section class="vista" id="vista-conocimiento">
       <div class="encabezado">
         <div>
           <h1>Base de conocimiento</h1>
           <p>Las tres tablas que consume el motor: <code>hipotesis</code>, <code>evidencia</code> y
-            <code>granulo</code> (una fila por condición de cada regla If / And / Then). Los cambios se aplican al
-            siguiente diagnóstico sin modificar el código.</p>
-        </div>
-        <div class="acciones">
-          <label class="interruptor"><input type="checkbox" id="mostrar-inactivos"> Mostrar desactivados</label>
-          <button class="boton secundario" id="boton-nueva-hipotesis">+ Hipótesis</button>
-          <button class="boton secundario" id="boton-nueva-evidencia">+ Evidencia</button>
-          <button class="boton" id="boton-nuevo-granulo">+ Gránulo</button>
+            <code>granulo</code> (una fila por condición de cada regla If / And / Then).</p>
         </div>
       </div>
       <div class="indicadores" id="indicadores-bc"></div>
@@ -273,11 +195,8 @@
           <div class="tabla-desplazable"><table id="tabla-hipotesis"></table></div>
         </div>
         <div class="tarjeta">
-          <div class="tarjeta-cabecera">
-            <h2 id="titulo-granulos">Gránulos</h2>
-            <span id="acciones-hipotesis"></span>
-          </div>
-          <p class="ayuda" id="ayuda-granulos">Seleccione una hipótesis para ver sus reglas.</p>
+          <h2 id="titulo-granulos">Gránulos</h2>
+          <p class="ayuda" id="ayuda-granulos">Selecciona una hipótesis para ver sus reglas.</p>
           <div id="lista-granulos"></div>
         </div>
       </div>
@@ -287,77 +206,6 @@
           aria-label="Filtrar evidencias">
         <div class="tabla-desplazable alta"><table id="tabla-evidencias"></table></div>
       </details>
-      <details class="tarjeta plegable" id="plegable-auditoria">
-        <summary><h2>Auditoría del conocimiento</h2></summary>
-        <p class="ayuda">Quién creó, modificó, activó o desactivó cada elemento y cuándo (tabla
-          <code>auditoria_conocimiento</code> de la base transaccional).</p>
-        <div class="tabla-desplazable"><table id="tabla-auditoria"></table></div>
-      </details>
-    </section>
-
-    <!-- ============================================================ HISTORIAL -->
-    <section class="vista" id="vista-historial">
-      <div class="encabezado">
-        <div>
-          <h1>Historial de diagnósticos</h1>
-          <p>Cada ejecución del motor guardada en la base de datos: rondas de incidentes y consultas libres. Abra una
-            para revisar su razonamiento o descargar el informe.</p>
-        </div>
-        <div class="acciones"><button class="boton secundario" id="boton-recargar-historial">Actualizar</button></div>
-      </div>
-      <div class="tarjeta"><div class="tabla-desplazable alta"><table id="tabla-historial"></table></div></div>
-    </section>
-
-    <!-- ============================================================ INDICADORES -->
-    <section class="vista" id="vista-indicadores">
-      <div class="encabezado">
-        <div>
-          <h1>Indicadores de la atención</h1>
-          <p>Calculados con los incidentes de la base transaccional en el periodo elegido.</p>
-        </div>
-        <form class="acciones" id="filtro-indicadores">
-          <label class="en-linea">Desde<input type="date" name="desde"></label>
-          <label class="en-linea">Hasta<input type="date" name="hasta"></label>
-          <button class="boton secundario" type="submit">Calcular</button>
-          <button class="boton secundario" type="button" id="boton-exportar-2">Exportar CSV</button>
-        </form>
-      </div>
-      <div class="indicadores seis" id="kpis"></div>
-      <div class="rejilla-indicadores">
-        <div class="tarjeta"><h2>Incidentes por categoría del árbol</h2><div id="grafico-categorias"></div></div>
-        <div class="tarjeta"><h2>Hipótesis confirmadas con más frecuencia</h2><div id="tabla-confirmadas"></div></div>
-        <div class="tarjeta"><h2>Equipos con más incidentes</h2>
-          <p class="ayuda">Seleccione un equipo para ver su historial.</p><div id="tabla-equipos"></div></div>
-        <div class="tarjeta">
-          <div class="tarjeta-cabecera"><h2>Historial por equipo</h2>
-            <form id="form-historial-equipo" class="buscar-equipo"><input name="inventario" placeholder="Inventario, ej.: PC-SALA2-014" required>
-              <button class="boton secundario pequeno">Ver</button></form></div>
-          <div id="historial-equipo"><p class="ayuda">Escriba un código de inventario.</p></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============================================================ USUARIOS (RF-01) -->
-    <section class="vista" id="vista-usuarios">
-      <div class="encabezado">
-        <div>
-          <h1>Usuarios y roles</h1>
-          <p>Las cuentas no se eliminan: se desactivan y su historial permanece visible.</p>
-        </div>
-        <div class="acciones"><button class="boton" id="boton-nuevo-usuario">+ Nueva cuenta</button></div>
-      </div>
-      <div class="tarjeta"><div class="tabla-desplazable alta"><table id="tabla-usuarios"></table></div></div>
-      <div class="rejilla-bc">
-        <details class="tarjeta plegable" open>
-          <summary><h2>Matriz de permisos (rol_permiso)</h2></summary>
-          <p class="ayuda">El servidor valida cada petición contra esta matriz. Ningún rol puede eliminar registros.</p>
-          <div id="matriz-permisos"></div>
-        </details>
-        <details class="tarjeta plegable">
-          <summary><h2>Bitácora de acceso</h2></summary>
-          <div class="tabla-desplazable"><table id="tabla-bitacora"></table></div>
-        </details>
-      </div>
     </section>
 
     <!-- ============================================================ SERVICIO -->
@@ -365,8 +213,8 @@
       <div class="encabezado">
         <div>
           <h1>El sistema experto como servicio</h1>
-          <p>Esta página no razona: el diagnóstico y los procesos los hace la API REST de SEDATI (AWS Lambda + API
-            Gateway) con las dos bases de datos en Amazon RDS for MySQL.</p>
+          <p>Esta página no razona: todo el diagnóstico lo hace la API REST de SEDATI (AWS Lambda + API Gateway)
+            con la base de conocimiento almacenada en Amazon RDS.</p>
         </div>
       </div>
       <div class="rejilla-servicio">
@@ -378,18 +226,18 @@
           <h2>Arquitectura</h2>
           <div class="arquitectura">
             <div class="nodo"><b>Navegador</b><span>Interfaz web (Amazon S3)</span></div>
-            <div class="flecha">HTTPS · JSON · token de sesión firmado</div>
+            <div class="flecha">HTTPS · JSON · sin inicio de sesión</div>
             <div class="nodo"><b>Amazon API Gateway</b><span>API HTTP · ANY /api/{proxy+}</span></div>
             <div class="flecha">invoca</div>
             <div class="nodo acento"><b>AWS Lambda</b><span>Servicio · negocio · motor de inferencia · DAO (Python)</span></div>
             <div class="flecha">SQL granular</div>
-            <div class="nodo"><b>Amazon RDS for MySQL</b><span>sedati_kb (3 tablas) · sedati_trx (18 tablas)</span></div>
+            <div class="nodo"><b>Amazon RDS for MySQL</b><span>sedati_kb (3 tablas) · sedati_trx (4 tablas)</span></div>
           </div>
         </div>
       </div>
       <div class="tarjeta">
         <h2>Rutas de la API</h2>
-        <p class="ayuda">Todas, salvo /salud y /auth/ingresar, exigen la cabecera <code>Authorization: Bearer &lt;token&gt;</code>.</p>
+        <p class="ayuda">Todas son públicas: no hay cuentas ni roles.</p>
         <div class="tabla-desplazable alta"><table class="tabla-api" id="tabla-rutas"></table></div>
         <h3>Ejemplo de petición</h3>
         <pre class="bloque-codigo" id="ejemplo-peticion"></pre>
@@ -397,19 +245,9 @@
     </section>
   </main>
 
-  <dialog class="dialogo" id="dialogo">
-    <form method="dialog" id="dialogo-form">
-      <header><h2 id="dialogo-titulo"></h2><button class="cerrar" value="cancelar" aria-label="Cerrar" formnovalidate>×</button></header>
-      <div class="dialogo-cuerpo" id="dialogo-cuerpo"></div>
-      <p class="error-formulario" id="dialogo-error" role="alert"></p>
-      <footer id="dialogo-pie"></footer>
-    </form>
-  </dialog>
-
   <div class="aviso-flotante" id="aviso" role="status" aria-live="polite"></div>
 
   <script src="config.js"></script>
   <script src="app.js"></script>
-  <script src="atencion.js"></script>
 </body>
 </html>

@@ -67,8 +67,12 @@ class ConexionBD(ABC):
 
 
 class ConexionSQLite(ConexionBD):
-    def __init__(self, ruta, scripts=()):
+    def __init__(self, ruta, scripts=(), columna_requerida=None):
+        """columna_requerida: (tabla, columna) que debe existir; si el archivo es de una versión anterior
+        sin ella, se aparta como <archivo>.anterior y la base se crea de nuevo a partir de los scripts."""
         self.ruta = Path(ruta)
+        if columna_requerida and self.ruta.exists():
+            self._apartar_si_es_anterior(*columna_requerida)
         nueva = not self.ruta.exists()
         self.ruta.parent.mkdir(parents=True, exist_ok=True)
         self._cx = sqlite3.connect(self.ruta, check_same_thread=False)
@@ -81,6 +85,18 @@ class ConexionSQLite(ConexionBD):
                 self._cx.executescript(Path(script).read_text(encoding='utf-8'))
             self._cx.commit()
             self.creada = True
+
+    def _apartar_si_es_anterior(self, tabla, columna):
+        cx = sqlite3.connect(self.ruta)
+        try:
+            tablas = {f[0] for f in cx.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            columnas = {f[1] for f in cx.execute(f'PRAGMA table_info({tabla})')} if tabla in tablas else set()
+        finally:
+            cx.close()
+        if tablas and columna not in columnas:
+            destino = self.ruta.with_name(self.ruta.name + '.anterior')
+            destino.unlink(missing_ok=True)
+            self.ruta.rename(destino)
 
     def _tiene_tablas(self):
         return self._cx.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'").fetchone()[0] > 0
@@ -193,7 +209,7 @@ def crear_conexiones(configuracion):
         datos = {k: m[k] for k in ('host', 'port', 'user', 'password')}
         return (ConexionMySQL(database=m['base_kb'], **datos), ConexionMySQL(database=m['base_trx'], **datos))
     kb = ConexionSQLite(configuracion.ruta_sqlite_kb, SCRIPTS_SQLITE_KB)
-    trx = ConexionSQLite(configuracion.ruta_sqlite_trx, SCRIPTS_SQLITE_TRX)
+    trx = ConexionSQLite(configuracion.ruta_sqlite_trx, SCRIPTS_SQLITE_TRX, ('diagnostico', 'nombre_usuario'))
     return kb, trx
 
 

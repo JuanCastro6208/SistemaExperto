@@ -6,12 +6,11 @@
 Ejecuta, en orden, los mismos scripts que se abren en MySQL Workbench:
     bd/mysql/01_kb_esquema.sql                        base de conocimiento: hipotesis, evidencia, granulo
     bd/02_kb_datos.sql                                conocimiento del experto (38 hipótesis, 88 reglas)
-    bd/mysql/03_trx_esquema.sql                       base transaccional (18 tablas y sus disparadores)
-    bd/04_trx_datos.sql                               catálogos, matriz de permisos y cuentas de demostración
-    bd/mysql/05_roles_permisos.sql                    roles de MySQL equivalentes a los del sistema
+    bd/mysql/03_trx_esquema.sql                       base transaccional (diagnósticos y sus disparadores)
+    bd/04_trx_datos.sql                               escala de respuestas
+    bd/mysql/05_roles_permisos.sql                    rol de MySQL de la cuenta del servicio web
     bd/mysql/06_consultas_granulos_por_hipotesis.sql  vistas y procedimientos de consulta de la BC
 
-Con --demo carga además incidentes de demostración usando la propia capa de negocio.
 Con --usuario-servicio crea el usuario de MySQL de la aplicación con el rol sedati_aplicacion.
 
 ATENCIÓN: los scripts de esquema borran y vuelven a crear las tablas.
@@ -87,31 +86,14 @@ def crear_usuario_servicio(cx, usuario, contrasena):
             print(f"  ✔ usuario de servicio '{usuario}' con el rol sedati_aplicacion")
         except Exception:  # noqa: BLE001 - p. ej. RDS sin ROLE_ADMIN: los mismos permisos, otorgados directamente
             cur.execute(f"GRANT SELECT, INSERT, UPDATE ON sedati_trx.* TO '{usuario}'@'%'")
-            cur.execute(f"GRANT SELECT, INSERT, UPDATE, EXECUTE ON sedati_kb.* TO '{usuario}'@'%'")
-            print(f"  ✔ usuario de servicio '{usuario}' con SELECT, INSERT y UPDATE (sin DELETE) en las dos bases")
+            cur.execute(f"GRANT SELECT, EXECUTE ON sedati_kb.* TO '{usuario}'@'%'")
+            print(f"  ✔ usuario de servicio '{usuario}': SELECT, INSERT y UPDATE en sedati_trx; SELECT en sedati_kb")
 
 
 def conectar(host, puerto, usuario, contrasena, base=None):
     import pymysql
     return pymysql.connect(host=host, port=puerto, user=usuario, password=contrasena, database=base,
                            charset='utf8mb4', autocommit=True, connect_timeout=15)
-
-
-def cargar_demostracion(host, puerto, usuario, contrasena):
-    """Incidentes de demostración creados con la propia capa de negocio (ver sedati/servicio/demostracion.py)."""
-    from dataclasses import replace
-    from sedati.configuracion import cargar_configuracion
-    from sedati.servicio import ApiSEDATI
-    from sedati.servicio.demostracion import cargar_demostracion as cargar
-    conf = replace(cargar_configuracion(), motor_bd='mysql', datos_demostracion=False,
-                   mysql={'host': host, 'port': puerto, 'user': usuario, 'password': contrasena,
-                          'base_kb': 'sedati_kb', 'base_trx': 'sedati_trx'})
-    api = ApiSEDATI(conf)
-    try:
-        cargar(api)
-    finally:
-        api.fabrica.cerrar()
-    print('  ✔ incidentes de demostración')
 
 
 def main():
@@ -122,7 +104,6 @@ def main():
     p.add_argument('--contrasena', help='Si no se indica, se pide por teclado')
     p.add_argument('--usuario-servicio', metavar='NOMBRE', help='Crea este usuario para la aplicación')
     p.add_argument('--contrasena-servicio')
-    p.add_argument('--demo', action='store_true', help='Carga incidentes de demostración')
     p.add_argument('--si', action='store_true', help='No pedir confirmación')
     a = p.parse_args()
 
@@ -150,8 +131,6 @@ def main():
         print(f'sedati_trx: {t} tablas.')
     finally:
         cx.close()
-    if a.demo:
-        cargar_demostracion(a.host, a.puerto, a.usuario, contrasena)
     return 0
 
 

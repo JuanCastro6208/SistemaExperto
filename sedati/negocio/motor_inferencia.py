@@ -33,7 +33,7 @@ class MotorInferencia:
         self.pasos = []                # PasoInferencia, para la evolución de las probabilidades
         self.preguntas_respondidas = 0
         self._paso = 0
-        self.descartadas = set()       # id de hipótesis descartadas en rondas anteriores del incidente
+        self.descartadas = set()       # id de hipótesis que no se deben proponer
 
     # ================================================================ consultas a la base
     def _anotar_consulta(self, descripcion, filas):
@@ -90,8 +90,7 @@ class MotorInferencia:
     def iniciar(self, sintoma_ids, descartadas=()):
         """Registra los síntomas iniciales y arma el diagnóstico diferencial.
 
-        descartadas: id de las hipótesis que el administrador descartó en rondas anteriores del mismo
-        incidente; no se proponen de nuevo (RF-02).
+        descartadas: id de hipótesis que no se deben proponer (por ejemplo, causas ya descartadas).
         """
         self.descartadas = set(descartadas)
         self.memoria = MemoriaTrabajo()

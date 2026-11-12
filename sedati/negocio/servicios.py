@@ -11,21 +11,19 @@ def _texto_fecha(fecha):
 
 
 class SesionDiagnostico:
-    """Una ronda de diagnóstico en curso: une el motor de inferencia con su registro en sedati_trx."""
+    """Un diagnóstico en curso: une el motor de inferencia con su registro en sedati_trx."""
 
-    def __init__(self, motor, dao_diagnostico, diagnostico_id, opciones, datos, reloj, incidente_id=None):
+    def __init__(self, motor, dao_diagnostico, diagnostico_id, opciones, datos, reloj):
         self.motor = motor
         self._dao = dao_diagnostico
         self._reloj = reloj
         self.diagnostico_id = diagnostico_id
-        self.incidente_id = incidente_id
         self.opciones = opciones
-        self.datos = datos              # equipo, ubicación, descripción
+        self.datos = datos              # nombre de quien consulta, categoría del árbol, equipo, ubicación, descripción
         self.finalizada = False
         self.pregunta_actual = None
         self.motivo_conclusion = None
         self.iniciada_en = reloj()
-        self.ronda = 1
 
     # compatibilidad con la interfaz de escritorio, que habla de «consulta»
     @property
@@ -91,15 +89,12 @@ class SesionDiagnostico:
             self._dao.cancelar(self.diagnostico_id, _texto_fecha(self._reloj()))
 
     def informe(self):
-        """Informe en texto plano de la ronda de diagnóstico (para exportar)."""
+        """Informe en texto plano del diagnóstico (para exportar)."""
         top = self.resultado()
         d = self.datos
         lineas = ['SEDATI - Informe de diagnóstico', '=' * 60,
-                  f'Diagnóstico: {self.diagnostico_id or "-"}    Ronda: {self.ronda}    '
-                  f'Fecha: {_texto_fecha(self.iniciada_en)[:16]}',
-                  f'Incidente: {d.get("incidente") or "-"}',
-                  f'Equipo: {d.get("equipo") or "-"}    Ubicación: {d.get("ubicacion") or "-"}',
-                  f'Descripción: {d.get("descripcion") or "-"}', '',
+                  f'Diagnóstico: {self.diagnostico_id or "-"}    Fecha: {_texto_fecha(self.iniciada_en)[:16]}',
+                  f'Consultó: {d.get("nombre") or "-"}    Categoría del árbol: {d.get("categoria") or "-"}', '',
                   'RESPUESTAS', '-' * 60]
         etiquetas = {o.codigo: o.etiqueta for o in self.opciones}
         for r in self.motor.memoria.respuestas_en_orden():
@@ -139,28 +134,54 @@ class ServicioDiagnostico:
     def sintomas(self, categoria):
         return self._kb.sintomas_por_categoria(categoria)
 
+    def arbol(self):
+        """El árbol de decisión en el orden en que se recorre: categoría (A. Energía y arranque primero,
+        luego B, C...) → ramas → síntomas con los que empiezan sus reglas."""
+        categorias = {}
+        for f in self._kb.ramas():
+            c = categorias.setdefault(f['categoria_codigo'], {'codigo': f['categoria_codigo'],
+                                                              'nombre': f['categoria_nombre'], 'ramas': {}})
+            r = c['ramas'].setdefault(f['rama_codigo'], {'codigo': f['rama_codigo'], 'nombre': f['rama_nombre'],
+                                                         'sintomas': []})
+            r['sintomas'].append({'id': f['id'], 'codigo': f['codigo'], 'enunciado': f['enunciado']})
+        salida = []
+        for codigo in sorted(categorias):
+            c = categorias[codigo]
+            salida.append(dict(c, ramas=[c['ramas'][r] for r in sorted(c['ramas'])]))
+        return salida
+
     def ids_de_hipotesis(self, codigos):
         return [f['id'] for f in self._kb.hipotesis_por_codigos(codigos)]
 
-    def iniciar(self, sintoma_ids, equipo='', ubicacion='', descripcion='', registrar=True, incidente_id=None,
-                registrado_por=None, descartadas=()):
-        """Abre una ronda de diagnóstico. descartadas: códigos HIP-NN que no se deben proponer."""
+    @staticmethod
+    def limpiar_nombre(nombre):
+        return ' '.join(str(nombre or '').split())[:80]
+
+    def iniciar(self, sintoma_ids, equipo='', ubicacion='', descripcion='', registrar=True, nombre='',
+                categoria=None, descartadas=()):
+        """Abre un diagnóstico. nombre: quien consulta (obligatorio si se registra); categoria: letra de la
+        categoría del árbol que eligió; descartadas: códigos HIP-NN que no se deben proponer."""
         if not sintoma_ids:
             raise ErrorNegocio('Marque al menos un síntoma para iniciar el diagnóstico.')
+        if categoria and (not isinstance(categoria, str) or len(categoria) != 1 or not 'A' <= categoria.upper() <= 'G'):
+            raise ErrorNegocio('La categoría del árbol debe ser una letra de la A a la G.')
+        categoria = categoria.upper() if categoria else None
+        nombre = self.limpiar_nombre(nombre)
+        if registrar and not nombre:
+            raise ErrorNegocio('Escriba su nombre («¿Cómo te llamas?») para registrar el diagnóstico.')
         motor = MotorInferencia(self._kb, self.parametros)
         motor.iniciar(sintoma_ids, self.ids_de_hipotesis(descartadas))
-        datos = {'equipo': equipo, 'ubicacion': ubicacion, 'descripcion': descripcion}
+        datos = {'nombre': nombre, 'categoria': categoria, 'equipo': equipo, 'ubicacion': ubicacion,
+                 'descripcion': descripcion}
         diagnostico_id = None
         if registrar:
-            diagnostico_id = self._diagnosticos.crear(incidente_id, registrado_por, self.parametros.como_texto(), datos,
+            diagnostico_id = self._diagnosticos.crear(nombre, categoria, self.parametros.como_texto(), datos,
                                                       _texto_fecha(self._reloj()))
             for r in motor.memoria.respuestas_en_orden():
                 self._diagnosticos.guardar_respuesta(diagnostico_id, r.orden, r.evidencia.codigo, r.escala_codigo,
                                                      r.valor, r.origen, _texto_fecha(self._reloj()))
         sesion = SesionDiagnostico(motor, self._diagnosticos, diagnostico_id, self.opciones_respuesta(), datos,
-                                   self._reloj, incidente_id)
-        if diagnostico_id:
-            sesion.ronda = self._diagnosticos.por_id(diagnostico_id).ronda
+                                   self._reloj)
         sesion.avanzar()
         return sesion
 
@@ -174,15 +195,14 @@ class ServicioDiagnostico:
         return ev
 
     def reproducir(self, sintoma_ids, respuestas, equipo='', ubicacion='', descripcion='', registrar=False,
-                   incidente_id=None, registrado_por=None, descartadas=()):
-        """Rehace una ronda a partir de sus síntomas y de la lista de respuestas [(evidencia_id, escala)].
+                   nombre='', categoria=None, descartadas=()):
+        """Rehace un diagnóstico a partir de sus síntomas y de la lista de respuestas [(evidencia_id, escala)].
 
         Lo usa el servicio web, que no guarda estado entre peticiones (AWS Lambda): cada petición trae
         todo lo respondido y el motor vuelve a razonar desde cero, con las mismas consultas granulares.
-        Con registrar=True la ronda y sus respuestas quedan guardadas en sedati_trx.
+        Con registrar=True el diagnóstico y sus respuestas quedan guardados en sedati_trx.
         """
-        sesion = self.iniciar(sintoma_ids, equipo, ubicacion, descripcion, registrar, incidente_id, registrado_por,
-                              descartadas)
+        sesion = self.iniciar(sintoma_ids, equipo, ubicacion, descripcion, registrar, nombre, categoria, descartadas)
         motor = sesion.motor
         for evidencia_id, escala in respuestas:
             ev = self._evidencia(motor, evidencia_id)
@@ -197,11 +217,12 @@ class ServicioDiagnostico:
         sesion.avanzar()
         return sesion
 
-    def historial(self):
-        return self._diagnosticos.listar()
+    def historial(self, nombre=None):
+        """Diagnósticos guardados; con nombre, solo los de esa persona."""
+        return self._diagnosticos.listar(nombre_usuario=self.limpiar_nombre(nombre) or None)
 
     def entradas_guardadas(self, diagnostico_id):
-        """(síntomas iniciales, respuestas [(evidencia_id, escala)]) de una ronda guardada."""
+        """(síntomas iniciales, respuestas [(evidencia_id, escala)]) de un diagnóstico guardado."""
         respuestas = self._diagnosticos.respuestas(diagnostico_id)
         ids = {f['codigo']: f['id'] for f in self._kb.evidencias_por_codigos([r.evidencia_codigo for r in respuestas])}
         iniciales = [ids[r.evidencia_codigo] for r in respuestas if r.origen == 'SINTOMA_INICIAL' and r.evidencia_codigo in ids]
@@ -210,7 +231,7 @@ class ServicioDiagnostico:
         return iniciales, preguntas
 
     def reconstruir(self, diagnostico_id, descartadas=()):
-        """Vuelve a ejecutar una ronda guardada para ver su razonamiento (sin modificarla)."""
+        """Vuelve a ejecutar un diagnóstico guardado para ver su razonamiento (sin modificarlo)."""
         d = self._diagnosticos.por_id(diagnostico_id)
         if not d:
             raise NoEncontrado(f'No existe el diagnóstico {diagnostico_id}.')
@@ -218,12 +239,11 @@ class ServicioDiagnostico:
         if not iniciales:
             raise ErrorNegocio(f'El diagnóstico {diagnostico_id} no tiene síntomas registrados.')
         sesion = self.reproducir(iniciales, preguntas, d.equipo_texto or '', d.ubicacion_texto or '',
-                                 d.descripcion or '', registrar=False, descartadas=descartadas)
+                                 d.descripcion or '', registrar=False, nombre=d.nombre_usuario,
+                                 categoria=d.categoria_codigo, descartadas=descartadas)
         sesion.diagnostico_id = d.id
-        sesion.incidente_id = d.incidente_id
-        sesion.ronda = d.ronda
         sesion.finalizada = d.estado != 'EN_CURSO'
-        sesion.datos['incidente'] = d.incidente_codigo
+        sesion.iniciada_en = d.fecha_inicio
         return sesion
 
 

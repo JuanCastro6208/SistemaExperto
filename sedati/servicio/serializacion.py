@@ -81,8 +81,8 @@ def sesion(s):
     return {
         'diagnostico_id': s.diagnostico_id,
         'consulta_id': s.diagnostico_id,
-        'incidente_id': s.incidente_id,
-        'ronda': s.ronda,
+        'nombre': s.datos.get('nombre') or None,
+        'categoria': s.datos.get('categoria'),
         'descartadas': sorted(m.memoria.hipotesis[h].codigo for h in m.descartadas if h in m.memoria.hipotesis),
         'finalizada': s.finalizada,
         'datos': s.datos,

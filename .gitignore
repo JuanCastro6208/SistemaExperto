@@ -7,13 +7,11 @@ dist/
 
 # Base SQLite local: se crea sola a partir de los scripts de bd/
 *.db
+*.db.anterior
 
 # Credenciales y documentos locales del despliegue
 *.local.txt
 aws/*.md
-
-# Clave local con la que se firman las sesiones (se genera sola)
-bd/.secreto_sesiones
 
 # Scripts locales que generan los documentos Word (usan rutas de este equipo)
 documentos_fuente/

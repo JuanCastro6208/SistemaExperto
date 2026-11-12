@@ -2,9 +2,8 @@
 
     python main.py
 
-Es la herramienta de consulta rápida del motor de inferencia (diagnóstico libre, base de conocimiento e
-historial de diagnósticos). Los procesos transaccionales completos (cuentas, incidentes, citas,
-soluciones, escalamientos, indicadores y administración del conocimiento) están en la aplicación web:
+Versión de escritorio del sistema experto (diagnóstico, base de conocimiento e historial). La versión
+principal es la aplicación web, que guía el diagnóstico por el árbol de decisión:
     python servidor_web.py
 """
 import sys

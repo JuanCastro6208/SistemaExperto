@@ -34,7 +34,7 @@ class SelectorGananciaInformacion:
         m = motor.memoria
         candidatas = {}
         for g in m.granulos.values():
-            if g.hipotesis_id in motor.descartadas:      # hipótesis descartada en una ronda anterior
+            if g.hipotesis_id in motor.descartadas:      # hipótesis excluida del diagnóstico
                 continue
             entrada = g.condiciones[0].evidencia
             if not m.ya_preguntada(entrada):

@@ -1,6 +1,6 @@
 """Lectura de config.ini.
 
-Cada valor de las secciones [base_datos], [mysql] y [seguridad] se puede reemplazar con una
+Cada valor de las secciones [base_datos], [mysql] y [general] se puede reemplazar con una
 variable de entorno. Así se configura el servicio en AWS Lambda sin escribir contraseñas en el código:
 
     SEDATI_MOTOR_BD          sqlite | mysql
@@ -8,12 +8,10 @@ variable de entorno. Así se configura el servicio en AWS Lambda sin escribir co
     SEDATI_RUTA_SQLITE_TRX   archivo SQLite de la base transaccional   (en Lambda: /tmp/sedati_trx.db)
     SEDATI_MYSQL_HOST, SEDATI_MYSQL_PUERTO, SEDATI_MYSQL_USUARIO, SEDATI_MYSQL_CONTRASENA
     SEDATI_MYSQL_BASE_KB, SEDATI_MYSQL_BASE_TRX
-    SEDATI_SECRETO           clave con la que se firman las sesiones (obligatoria en Lambda)
-    SEDATI_DATOS_DEMO        si | no: cargar incidentes de demostración al crear la base SQLite
+    SEDATI_UTC_OFFSET        diferencia con UTC de la hora local (Colombia: -5)
 """
 import configparser
 import os
-import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -43,9 +41,7 @@ class Configuracion:
     ruta_sqlite_trx: Path
     mysql: dict
     motor: ParametrosMotor
-    secreto: str = ''
     utc_offset_horas: float = -5.0
-    datos_demostracion: bool = False
 
     def ahora(self):
         """Fecha y hora local (Colombia no tiene horario de verano: UTC-5)."""
@@ -62,20 +58,6 @@ def _ruta(texto):
     return ruta if ruta.is_absolute() else RAIZ / ruta
 
 
-def _secreto_local(ruta_trx):
-    """Sin secreto configurado (uso local con SQLite) se genera uno y se guarda junto a la base."""
-    archivo = Path(ruta_trx).with_name('.secreto_sesiones')
-    try:
-        if archivo.exists():
-            return archivo.read_text(encoding='utf-8').strip()
-        archivo.parent.mkdir(parents=True, exist_ok=True)
-        clave = secrets.token_hex(32)
-        archivo.write_text(clave, encoding='utf-8')
-        return clave
-    except OSError:
-        return secrets.token_hex(32)
-
-
 def cargar_configuracion(ruta=None):
     ruta = Path(ruta) if ruta else RAIZ / 'config.ini'
     cp = configparser.ConfigParser()
@@ -83,16 +65,11 @@ def cargar_configuracion(ruta=None):
     bd = cp['base_datos'] if cp.has_section('base_datos') else {}
     my = cp['mysql'] if cp.has_section('mysql') else {}
     mo = cp['motor'] if cp.has_section('motor') else {}
-    se = cp['seguridad'] if cp.has_section('seguridad') else {}
-    ruta_trx = _ruta(_valor(bd, 'ruta_sqlite_trx', 'SEDATI_RUTA_SQLITE_TRX', 'bd/sedati_trx.db'))
-    motor_bd = _valor(bd, 'motor', 'SEDATI_MOTOR_BD', 'sqlite').strip().lower()
-    secreto = _valor(se, 'secreto', 'SEDATI_SECRETO', '').strip()
-    if not secreto:
-        secreto = _secreto_local(ruta_trx)
+    ge = cp['general'] if cp.has_section('general') else {}
     return Configuracion(
-        motor_bd=motor_bd,
+        motor_bd=_valor(bd, 'motor', 'SEDATI_MOTOR_BD', 'sqlite').strip().lower(),
         ruta_sqlite_kb=_ruta(_valor(bd, 'ruta_sqlite_kb', 'SEDATI_RUTA_SQLITE_KB', 'bd/sedati_kb.db')),
-        ruta_sqlite_trx=ruta_trx,
+        ruta_sqlite_trx=_ruta(_valor(bd, 'ruta_sqlite_trx', 'SEDATI_RUTA_SQLITE_TRX', 'bd/sedati_trx.db')),
         mysql={
             'host': _valor(my, 'host', 'SEDATI_MYSQL_HOST', 'localhost'),
             'port': int(_valor(my, 'puerto', 'SEDATI_MYSQL_PUERTO', '3306')),
@@ -109,8 +86,5 @@ def cargar_configuracion(ruta=None):
             hipotesis_resultado=int(mo.get('hipotesis_resultado', 5)),
             aplicabilidad_base=float(mo.get('aplicabilidad_base', 0.10)),
         ),
-        secreto=secreto,
-        utc_offset_horas=float(_valor(se, 'utc_offset_horas', 'SEDATI_UTC_OFFSET', '-5')),
-        datos_demostracion=_valor(bd, 'datos_demostracion', 'SEDATI_DATOS_DEMO', 'si').strip().lower()
-        in ('si', 'sí', '1', 'true', 'yes'),
+        utc_offset_horas=float(_valor(ge, 'utc_offset_horas', 'SEDATI_UTC_OFFSET', '-5')),
     )

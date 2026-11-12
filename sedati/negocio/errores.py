@@ -13,16 +13,3 @@ class ErrorNegocio(Exception):
 
 class NoEncontrado(ErrorNegocio):
     estado = 404
-
-
-class NoAutenticado(ErrorNegocio):
-    estado = 401
-
-
-class SinPermiso(ErrorNegocio):
-    estado = 403
-
-
-class Conflicto(ErrorNegocio):
-    """Choca con el estado actual de los datos (cita solapada, incidente cerrado, duplicado)."""
-    estado = 409

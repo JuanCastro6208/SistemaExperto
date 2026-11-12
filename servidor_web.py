@@ -31,7 +31,7 @@ class Manejador(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(contenido)))
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
         self.wfile.write(contenido)
 
@@ -92,7 +92,7 @@ def main():
     Manejador.api = ApiSEDATI()
     servidor = HTTPServer(('127.0.0.1', args.puerto), Manejador)
     print(f'SEDATI · servicio web en http://127.0.0.1:{args.puerto}  (base: {Manejador.api.fabrica.descripcion})')
-    print('Cuentas de demostración: admin@sedati.example / solicitante@sedati.example  ·  contraseña Sedati2026*')
+    print('No hace falta iniciar sesión: abra la dirección y escriba su nombre.')
     print('Ctrl+C para detener.')
     try:
         servidor.serve_forever()
