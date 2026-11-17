@@ -20,11 +20,30 @@ class _DTO:
 
 
 @dataclass
+class UsuarioDTO(_DTO):
+    id: int
+    nombre: str
+    correo: str
+    contrasena_hash: str
+    intentos_fallidos: int = 0
+    bloqueado_hasta: Optional[str] = None
+    ultimo_ingreso: Optional[str] = None
+    creado_en: Optional[str] = None
+
+    def como_dict(self):
+        """Nunca expone el hash de la contraseña."""
+        datos = asdict(self)
+        datos.pop('contrasena_hash', None)
+        return datos
+
+
+@dataclass
 class DiagnosticoDTO(_DTO):
     id: int
     nombre_usuario: str
     estado: str
     fecha_inicio: str
+    usuario_id: Optional[int] = None
     categoria_codigo: Optional[str] = None
     total_preguntas: int = 0
     parametros: Optional[str] = None

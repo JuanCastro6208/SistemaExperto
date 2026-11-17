@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F6FEB'/%3E%3Cpath d='M9 20l5-8 4 6 2-3 3 5' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="estilos.css">
 </head>
-<body class="sin-nombre">
+<body class="sin-sesion">
   <header class="barra">
     <div class="marca">
       <span class="logo" aria-hidden="true">
@@ -29,24 +29,48 @@
     </div>
     <div class="usuario-actual">
       <span class="avatar" id="usuario-iniciales" aria-hidden="true"></span>
-      <span class="datos-usuario"><small>Hola,</small><b id="usuario-nombre"></b></span>
-      <button class="boton secundario pequeno" id="boton-cambiar-nombre">Cambiar nombre</button>
+      <span class="datos-usuario"><b id="usuario-nombre"></b><small id="usuario-correo"></small></span>
+      <button class="boton secundario pequeno" id="boton-salir">Cerrar sesión</button>
     </div>
   </header>
 
   <main>
-    <!-- ============================================================ BIENVENIDA: ¿CÓMO TE LLAMAS? -->
+    <!-- ============================================================ ACCESO: INICIAR SESIÓN / CREAR CUENTA -->
     <section class="vista activa" id="vista-bienvenida">
       <div class="bienvenida">
         <div class="tarjeta bienvenida-tarjeta">
-          <h1>¿Cómo te llamas?</h1>
-          <p class="ayuda">No necesitas cuenta ni contraseña. Tu nombre queda en el registro de los diagnósticos que
-            guardes.</p>
-          <form id="form-nombre" autocomplete="on">
-            <label>Nombre<input id="campo-nombre" maxlength="80" required autocomplete="name"
+          <div class="selector-acceso" role="tablist" aria-label="Acceso">
+            <button type="button" class="activa" role="tab" aria-selected="true" data-modo="ingresar">Iniciar sesión</button>
+            <button type="button" role="tab" aria-selected="false" data-modo="registro">Crear cuenta</button>
+          </div>
+
+          <form id="form-ingresar" autocomplete="on">
+            <h1>Bienvenido</h1>
+            <p class="ayuda">Ingresa con tu correo y tu contraseña para diagnosticar y ver tu historial.</p>
+            <label>Correo<input id="ingresar-correo" type="email" maxlength="120" required autocomplete="username"
+                placeholder="nombre@correo.com"></label>
+            <label>Contraseña<input id="ingresar-contrasena" type="password" maxlength="128" required
+                autocomplete="current-password"></label>
+            <p class="error-formulario" id="ingresar-error" role="alert"></p>
+            <button class="boton ancho" type="submit">Iniciar sesión →</button>
+            <p class="ayuda nota-demo">Cuenta de demostración: <code>usuario@sedati.example</code> ·
+              <code>Sedati2026*</code></p>
+          </form>
+
+          <form id="form-registro" autocomplete="on" hidden>
+            <h1>Crea tu cuenta</h1>
+            <p class="ayuda">Tus diagnósticos quedan guardados a tu nombre y solo tú puedes verlos.</p>
+            <label>Nombre<input id="registro-nombre" maxlength="80" required autocomplete="name"
                 placeholder="Ej.: Ana Rodríguez"></label>
-            <p class="error-formulario" id="nombre-error" role="alert"></p>
-            <button class="boton ancho" type="submit">Comenzar →</button>
+            <label>Correo<input id="registro-correo" type="email" maxlength="120" required autocomplete="email"
+                placeholder="nombre@correo.com"></label>
+            <label>Contraseña<input id="registro-contrasena" type="password" minlength="8" maxlength="128" required
+                autocomplete="new-password"></label>
+            <label>Repite la contraseña<input id="registro-confirmacion" type="password" minlength="8" maxlength="128"
+                required autocomplete="new-password"></label>
+            <p class="ayuda">Mínimo 8 caracteres, con letras y números.</p>
+            <p class="error-formulario" id="registro-error" role="alert"></p>
+            <button class="boton ancho" type="submit">Crear cuenta →</button>
           </form>
         </div>
         <div class="bienvenida-texto">
@@ -71,8 +95,8 @@
         <div class="encabezado">
           <div>
             <h1>Nuevo diagnóstico</h1>
-            <p>Responde las preguntas en el orden del árbol de decisión. Cuando identifiques la categoría de la falla,
-              elige lo que ocurre y el motor de inferencia continúa con las preguntas necesarias.</p>
+            <p>Responde <b>Sí</b> o <b>No</b> recorriendo el árbol de decisión. Al llegar al final de una rama, el motor
+              de inferencia hace unas preguntas más, con grado de certeza, para dar el peso probabilístico de cada causa.</p>
           </div>
         </div>
         <div class="rejilla-arbol">
@@ -80,12 +104,14 @@
             <h2>Árbol de decisión</h2>
             <p class="ayuda">Categorías en el orden en que se preguntan.</p>
             <ol class="recorrido" id="recorrido"><li class="cargando">Cargando…</li></ol>
+            <div id="camino-arbol"></div>
             <div class="nota">
               <strong>¿Cómo funciona?</strong>
               <ol>
                 <li>Responde <b>Sí</b> o <b>No</b> a cada categoría, empezando por energía y arranque.</li>
-                <li>En la categoría donde respondas <b>Sí</b>, marca lo que ocurre.</li>
-                <li>Responde cada pregunta del motor con tu grado de certeza, no solo sí o no.</li>
+                <li>Dentro de la categoría, cada <b>Sí</b> te lleva un nivel más adentro del árbol y cada <b>No</b> a
+                  la siguiente pregunta del mismo nivel.</li>
+                <li>Al final de la rama, responde las preguntas del motor con tu grado de certeza.</li>
                 <li>Recibe las 5 hipótesis más probables y la acción recomendada.</li>
               </ol>
             </div>
@@ -102,7 +128,7 @@
             <p id="subtitulo-consulta"></p>
           </div>
           <div class="acciones">
-            <button class="boton secundario" id="boton-cancelar">Cancelar</button>
+            <button class="boton secundario" id="boton-cancelar">← Volver al árbol</button>
             <button class="boton secundario" id="boton-deshacer">↶ Deshacer respuesta</button>
             <button class="boton" id="boton-ver-resultado">Ver diagnóstico</button>
           </div>
@@ -110,6 +136,7 @@
         <div class="rejilla-consulta">
           <div class="columna">
             <div class="tarjeta" id="tarjeta-pregunta"></div>
+            <div class="tarjeta" id="tarjeta-hoja" hidden></div>
             <div class="tarjeta">
               <h2>Respuestas registradas</h2>
               <p class="ayuda">Las observaciones equivalentes se deducen y no se vuelven a preguntar.</p>
@@ -165,11 +192,10 @@
     <section class="vista" id="vista-historial">
       <div class="encabezado">
         <div>
-          <h1>Historial de diagnósticos</h1>
-          <p>Diagnósticos guardados en la base de datos. Abre uno para revisar su razonamiento o descargar el informe.</p>
+          <h1>Mis diagnósticos</h1>
+          <p>Los diagnósticos que guardaste con tu cuenta. Abre uno para revisar su razonamiento o descargar el informe.</p>
         </div>
         <div class="acciones">
-          <label class="interruptor"><input type="checkbox" id="solo-mios" checked> Solo los míos</label>
           <button class="boton secundario" id="boton-recargar-historial">Actualizar</button>
         </div>
       </div>
@@ -226,18 +252,19 @@
           <h2>Arquitectura</h2>
           <div class="arquitectura">
             <div class="nodo"><b>Navegador</b><span>Interfaz web (Amazon S3)</span></div>
-            <div class="flecha">HTTPS · JSON · sin inicio de sesión</div>
+            <div class="flecha">HTTPS · JSON · token de sesión firmado</div>
             <div class="nodo"><b>Amazon API Gateway</b><span>API HTTP · ANY /api/{proxy+}</span></div>
             <div class="flecha">invoca</div>
             <div class="nodo acento"><b>AWS Lambda</b><span>Servicio · negocio · motor de inferencia · DAO (Python)</span></div>
             <div class="flecha">SQL granular</div>
-            <div class="nodo"><b>Amazon RDS for MySQL</b><span>sedati_kb (3 tablas) · sedati_trx (4 tablas)</span></div>
+            <div class="nodo"><b>Amazon RDS for MySQL</b><span>sedati_kb (3 tablas) · sedati_trx (5 tablas)</span></div>
           </div>
         </div>
       </div>
       <div class="tarjeta">
         <h2>Rutas de la API</h2>
-        <p class="ayuda">Todas son públicas: no hay cuentas ni roles.</p>
+        <p class="ayuda">Las marcadas con 🔒 exigen la cabecera <code>Authorization: Bearer &lt;token&gt;</code> de una
+          sesión vigente. Hay un solo tipo de cuenta (usuario), sin roles.</p>
         <div class="tabla-desplazable alta"><table class="tabla-api" id="tabla-rutas"></table></div>
         <h3>Ejemplo de petición</h3>
         <pre class="bloque-codigo" id="ejemplo-peticion"></pre>

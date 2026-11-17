@@ -1,6 +1,6 @@
 """DAO de la base transaccional (sedati_trx) sobre SQL. Funcionan igual con MySQL 8 y con SQLite."""
-from ..dto import DiagnosticoDTO, HipotesisPropuestaDTO, RespuestaDTO
-from .interfaces import CatalogoDAO, DiagnosticoDAO
+from ..dto import DiagnosticoDTO, HipotesisPropuestaDTO, RespuestaDTO, UsuarioDTO
+from .interfaces import CatalogoDAO, DiagnosticoDAO, UsuarioDAO
 
 
 # =====================================================================  catálogos
@@ -12,17 +12,44 @@ class CatalogoDAOSQL(CatalogoDAO):
         return self._cx.consultar('SELECT codigo, etiqueta, valor, orden, color FROM escala_respuesta ORDER BY orden')
 
 
+# =====================================================================  usuarios
+class UsuarioDAOSQL(UsuarioDAO):
+    _COLUMNAS = 'id, nombre, correo, contrasena_hash, intentos_fallidos, bloqueado_hasta, ultimo_ingreso, creado_en'
+
+    def __init__(self, conexion):
+        self._cx = conexion
+
+    def crear(self, nombre, correo, contrasena_hash, fecha):
+        return self._cx.ejecutar('INSERT INTO usuario (nombre, correo, contrasena_hash, creado_en) VALUES (?, ?, ?, ?)',
+                                 (nombre, correo.lower(), contrasena_hash, fecha))
+
+    def por_id(self, usuario_id):
+        return UsuarioDTO.desde_fila(self._cx.uno(f'SELECT {self._COLUMNAS} FROM usuario WHERE id = ?', (usuario_id,)))
+
+    def por_correo(self, correo):
+        return UsuarioDTO.desde_fila(self._cx.uno(f'SELECT {self._COLUMNAS} FROM usuario WHERE correo = ?',
+                                                  ((correo or '').lower(),)))
+
+    def registrar_fallo(self, usuario_id, intentos, bloqueado_hasta):
+        self._cx.ejecutar('UPDATE usuario SET intentos_fallidos = ?, bloqueado_hasta = ? WHERE id = ?',
+                          (intentos, bloqueado_hasta, usuario_id))
+
+    def registrar_ingreso(self, usuario_id, fecha):
+        self._cx.ejecutar('UPDATE usuario SET intentos_fallidos = 0, bloqueado_hasta = NULL, ultimo_ingreso = ? '
+                          'WHERE id = ?', (fecha, usuario_id))
+
+
 # =====================================================================  diagnósticos
 class DiagnosticoDAOSQL(DiagnosticoDAO):
     def __init__(self, conexion):
         self._cx = conexion
 
-    def crear(self, nombre_usuario, categoria_codigo, parametros, datos, fecha):
+    def crear(self, nombre_usuario, categoria_codigo, parametros, datos, fecha, usuario_id=None):
         return self._cx.ejecutar(
-            '''INSERT INTO diagnostico (nombre_usuario, categoria_codigo, estado, parametros, equipo_texto,
+            '''INSERT INTO diagnostico (usuario_id, nombre_usuario, categoria_codigo, estado, parametros, equipo_texto,
                                         ubicacion_texto, descripcion, fecha_inicio)
-               VALUES (?, ?, 'EN_CURSO', ?, ?, ?, ?, ?)''',
-            (nombre_usuario, categoria_codigo or None, parametros, (datos.get('equipo') or None),
+               VALUES (?, ?, ?, 'EN_CURSO', ?, ?, ?, ?, ?)''',
+            (usuario_id, nombre_usuario, categoria_codigo or None, parametros, (datos.get('equipo') or None),
              (datos.get('ubicacion') or None), (datos.get('descripcion') or None), fecha))
 
     def guardar_respuesta(self, diagnostico_id, orden, evidencia_codigo, escala_codigo, valor, origen, fecha):
@@ -74,8 +101,11 @@ class DiagnosticoDAOSQL(DiagnosticoDAO):
         return [HipotesisPropuestaDTO.desde_fila(f) for f in self._cx.consultar(
             'SELECT * FROM diagnostico_hipotesis WHERE diagnostico_id = ? ORDER BY posicion', (diagnostico_id,))]
 
-    def listar(self, limite=200, nombre_usuario=None):
+    def listar(self, limite=200, nombre_usuario=None, usuario_id=None):
         filtro, parametros = "WHERE d.estado <> 'CANCELADO'", []
+        if usuario_id is not None:
+            filtro += ' AND d.usuario_id = ?'
+            parametros.append(usuario_id)
         if nombre_usuario:
             filtro += ' AND LOWER(d.nombre_usuario) = LOWER(?)'
             parametros.append(nombre_usuario)

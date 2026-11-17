@@ -20,7 +20,8 @@ DIST = RAIZ / 'dist'
 CONSTRUCCION = DIST / 'lambda'
 ZIP = DIST / 'sedati_lambda.zip'
 
-IGNORAR = shutil.ignore_patterns('__pycache__', '*.pyc', 'presentacion', '*.db', '*.local.txt')
+IGNORAR = shutil.ignore_patterns('__pycache__', '*.pyc', 'presentacion', '*.db', '*.db.anterior', '*.local.txt',
+                                 '.secreto_sesiones')
 
 
 def main():

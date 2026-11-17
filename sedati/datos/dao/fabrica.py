@@ -1,6 +1,6 @@
 """Fábrica de DAO: entrega a la capa de negocio las implementaciones que corresponden al motor."""
 from .sql_conocimiento import ConocimientoDAOSQL
-from .sql_transaccional import CatalogoDAOSQL, DiagnosticoDAOSQL
+from .sql_transaccional import CatalogoDAOSQL, DiagnosticoDAOSQL, UsuarioDAOSQL
 
 
 class FabricaDAO:
@@ -25,6 +25,9 @@ class FabricaDAO:
 
     def diagnosticos(self):
         return DiagnosticoDAOSQL(self.conexion_trx)
+
+    def usuarios(self):
+        return UsuarioDAOSQL(self.conexion_trx)
 
     def verificar(self):
         self.conexion_kb.verificar()

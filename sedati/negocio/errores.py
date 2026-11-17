@@ -11,5 +11,15 @@ class ErrorNegocio(Exception):
             self.estado = estado
 
 
+class NoAutenticado(ErrorNegocio):
+    """Falta la sesión, venció o las credenciales no son correctas (HTTP 401)."""
+    estado = 401
+
+
 class NoEncontrado(ErrorNegocio):
     estado = 404
+
+
+class Conflicto(ErrorNegocio):
+    """El dato ya existe (p. ej. una cuenta con el mismo correo) (HTTP 409)."""
+    estado = 409

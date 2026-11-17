@@ -1,8 +1,15 @@
 """API REST de SEDATI: expone el sistema experto como servicio web.
 
 La misma clase atiende las peticiones en AWS Lambda (lambda_function.py) y en el servidor local
-(servidor_web.py). No hay cuentas, contraseñas ni roles: la persona escribe su nombre al entrar
-(«¿Cómo te llamas?») y ese nombre queda en cada diagnóstico que guarda.
+(servidor_web.py).
+
+Inicio de sesión (un solo tipo de cuenta, sin roles):
+  · la persona crea su cuenta (POST /api/auth/registro) o inicia sesión (POST /api/auth/ingresar) con su
+    correo y su contraseña; el servicio responde un token firmado;
+  · el token viaja en la cabecera «Authorization: Bearer <token>»; cada respuesta autenticada trae en
+    «_sesion» un token renovado, y si pasan los minutos configurados sin actividad, vence;
+  · el diagnóstico y el historial exigen sesión; cada diagnóstico guardado queda ligado a la cuenta y cada
+    persona solo ve los suyos. El estado del servicio, el árbol y la base de conocimiento son públicos.
 
 El servicio no guarda estado entre peticiones: en el diagnóstico, el cliente envía en cada llamada los
 síntomas iniciales (los que eligió al recorrer el árbol de decisión) y todas las respuestas, y el motor
@@ -10,10 +17,12 @@ rehace el razonamiento con consultas granulares a la base de conocimiento.
 Las rutas están documentadas en RUTAS (al final del archivo) y en la vista «Servicio» de la web.
 """
 import re
+import secrets
 
 from ..configuracion import cargar_configuracion
 from ..datos import ErrorIntegridad, FabricaDAO, crear_conexiones
-from ..negocio import ErrorNegocio, ServicioConocimiento, ServicioDiagnostico
+from ..negocio import ErrorNegocio, ServicioAcceso, ServicioConocimiento, ServicioDiagnostico
+from ..negocio.seguridad import FirmadorSesion
 from . import serializacion as ser
 
 
@@ -43,6 +52,11 @@ def _booleano(valor):
     return valor in (True, 1, '1', 'true', 'si', 'sí')
 
 
+def _token(cabeceras):
+    valor = (cabeceras.get('authorization') or '').strip()
+    return valor[7:].strip() if valor.lower().startswith('bearer ') else ''
+
+
 class ApiSEDATI:
     def __init__(self, configuracion=None):
         self.configuracion = conf = configuracion or cargar_configuracion()
@@ -50,7 +64,10 @@ class ApiSEDATI:
         self.fabrica = f = FabricaDAO(kb, trx)
         self.diagnostico = ServicioDiagnostico(f.conocimiento(), f.diagnosticos(), f.catalogo(), conf.motor, conf.ahora)
         self.conocimiento = ServicioConocimiento(f.conocimiento())
-        self._rutas = [(m, re.compile(p), getattr(self, h)) for m, p, h, _ in RUTAS]
+        # sin secreto configurado (p. ej. en las pruebas) se usa uno aleatorio: las sesiones valen mientras viva el proceso
+        firmador = FirmadorSesion(conf.secreto or secrets.token_hex(32), conf.minutos_sesion)
+        self.acceso = ServicioAcceso(f.usuarios(), firmador, conf.ahora)
+        self._rutas = [(m, re.compile(p), getattr(self, h), publica) for m, p, h, publica, _ in RUTAS]
 
     # ================================================================ enrutamiento
     def atender(self, metodo, ruta, cuerpo=None, cabeceras=None, consulta=None, ip=None):
@@ -58,8 +75,9 @@ class ApiSEDATI:
         indice = ruta.find('/api/')
         ruta = ruta[indice + 4:] if indice >= 0 else ruta
         ruta = '/' + ruta.strip('/')
+        cabeceras = {str(k).lower(): v for k, v in (cabeceras or {}).items()}
         coincide_ruta = False
-        for m, patron, accion in self._rutas:
+        for m, patron, accion, publica in self._rutas:
             encontrado = patron.fullmatch(ruta)
             if not encontrado:
                 continue
@@ -68,8 +86,15 @@ class ApiSEDATI:
                 continue
             try:
                 self.fabrica.verificar()
-                peticion = {'cuerpo': cuerpo if isinstance(cuerpo, dict) else {}, 'consulta': consulta or {}, 'ip': ip}
-                return 200, accion(peticion, *encontrado.groups())
+                peticion = {'cuerpo': cuerpo if isinstance(cuerpo, dict) else {}, 'consulta': consulta or {},
+                            'ip': ip, 'usuario': None}
+                if not publica:
+                    peticion['usuario'] = self.acceso.autenticar(_token(cabeceras))
+                datos = accion(peticion, *encontrado.groups())
+                if peticion['usuario'] is not None:
+                    token, exp = self.acceso.renovar(peticion['usuario'])
+                    datos['_sesion'] = {'token': token, 'expira': exp}
+                return 200, datos
             except ErrorNegocio as e:
                 return e.estado, {'error': str(e)}
             except ErrorIntegridad as e:
@@ -84,7 +109,26 @@ class ApiSEDATI:
     def salud(self, p):
         return {'estado': 'ok', 'servicio': 'SEDATI · sistema experto', 'base_datos': self.fabrica.descripcion,
                 'estadisticas': ser.fila(self.conocimiento.estadisticas()),
-                'rutas': [{'metodo': m, 'ruta': _ruta_legible(r), 'descripcion': d} for m, r, _, d in RUTAS]}
+                'rutas': [{'metodo': m, 'ruta': _ruta_legible(r), 'descripcion': d, 'requiere_sesion': not publica}
+                          for m, r, _, publica, d in RUTAS]}
+
+    # ================================================================ acceso
+    @staticmethod
+    def _con_sesion(token, exp, usuario):
+        return {'usuario': usuario.como_dict(), '_sesion': {'token': token, 'expira': exp}}
+
+    def registrar(self, p):
+        """Crea la cuenta y deja la sesión iniciada."""
+        c = p['cuerpo']
+        return self._con_sesion(*self.acceso.registrar(c.get('nombre'), c.get('correo'), c.get('contrasena')))
+
+    def ingresar(self, p):
+        c = p['cuerpo']
+        return self._con_sesion(*self.acceso.ingresar(c.get('correo'), c.get('contrasena')))
+
+    def sesion(self, p):
+        """Comprueba que el token siga vigente y devuelve la cuenta (la respuesta trae el token renovado)."""
+        return {'usuario': p['usuario'].como_dict()}
 
     # ================================================================ diagnóstico
     @staticmethod
@@ -120,29 +164,30 @@ class ApiSEDATI:
     def diagnosticar(self, p):
         """Siguiente pregunta y top 5 (sin guardar)."""
         sintomas, respuestas = self._leer_consulta(p['cuerpo'])
-        c = p['cuerpo']
-        return ser.sesion(self.diagnostico.reproducir(sintomas, respuestas, nombre=_texto(c, 'nombre', 80),
-                                                      categoria=_texto(c, 'categoria', 1) or None))
+        u = p['usuario']
+        return ser.sesion(self.diagnostico.reproducir(sintomas, respuestas, nombre=u.nombre, usuario_id=u.id,
+                                                      categoria=_texto(p['cuerpo'], 'categoria', 1) or None))
 
     def guardar_consulta(self, p):
-        """Guarda el diagnóstico terminado con el nombre de quien consultó."""
+        """Guarda el diagnóstico terminado a nombre de la cuenta con la que se inició sesión."""
         c = p['cuerpo']
+        u = p['usuario']
         sintomas, respuestas = self._leer_consulta(c)
         sesion = self.diagnostico.reproducir(sintomas, respuestas, _texto(c, 'equipo', 40), _texto(c, 'ubicacion', 100),
-                                             _texto(c, 'descripcion', 2000), registrar=True,
-                                             nombre=_texto(c, 'nombre', 80), categoria=_texto(c, 'categoria', 1) or None)
+                                             _texto(c, 'descripcion', 2000), registrar=True, nombre=u.nombre,
+                                             usuario_id=u.id, categoria=_texto(c, 'categoria', 1) or None)
         sesion.finalizar()
         return ser.sesion(sesion)
 
     def historial(self, p):
-        nombre = p['consulta'].get('nombre')
-        return {'consultas': ser.dto(self.diagnostico.historial(nombre))}
+        """Solo los diagnósticos de la cuenta que inició sesión."""
+        return {'consultas': ser.dto(self.diagnostico.historial(usuario_id=p['usuario'].id))}
 
     def consulta(self, p, diagnostico_id):
-        return ser.sesion(self.diagnostico.reconstruir(int(diagnostico_id)))
+        return ser.sesion(self.diagnostico.reconstruir(int(diagnostico_id), usuario_id=p['usuario'].id))
 
     def informe(self, p, diagnostico_id):
-        sesion = self.diagnostico.reconstruir(int(diagnostico_id))
+        sesion = self.diagnostico.reconstruir(int(diagnostico_id), usuario_id=p['usuario'].id)
         return {'consulta_id': sesion.diagnostico_id, 'informe': sesion.informe()}
 
     # ================================================================ base de conocimiento (consulta)
@@ -160,16 +205,20 @@ class ApiSEDATI:
         return {'evidencias': [ser.fila(f) for f in self.conocimiento.evidencias(todas)]}
 
 
-# (método, ruta, función, descripción) — la vista «Servicio» de la web muestra esta lista.
+# (método, ruta, función, pública, descripción) — la vista «Servicio» de la web muestra esta lista.
+# pública = False: exige la cabecera «Authorization: Bearer <token>» de una sesión vigente.
 RUTAS = [
-    ('GET', r'/salud', 'salud', 'Estado del servicio y de las dos bases de datos'),
-    ('GET', r'/catalogo', 'catalogo', 'Árbol de decisión (categoría → rama → síntomas) y escala de respuestas'),
-    ('POST', r'/diagnostico', 'diagnosticar', 'Siguiente pregunta, top 5 con peso probabilístico y explicación'),
-    ('POST', r'/consultas', 'guardar_consulta', 'Guardar el diagnóstico con el nombre de quien consultó'),
-    ('GET', r'/consultas', 'historial', 'Historial de diagnósticos (?nombre= para ver solo los de una persona)'),
-    ('GET', r'/consultas/(\d+)', 'consulta', 'Razonamiento de un diagnóstico guardado'),
-    ('GET', r'/consultas/(\d+)/informe', 'informe', 'Informe en texto de un diagnóstico'),
-    ('GET', r'/conocimiento/hipotesis', 'hipotesis', 'Hipótesis de la base de conocimiento'),
-    ('GET', r'/conocimiento/hipotesis/(\d+)', 'granulos_de_hipotesis', 'Gránulos (If / And / Then) de una hipótesis'),
-    ('GET', r'/conocimiento/evidencias', 'evidencias', 'Síntomas y pruebas'),
+    ('GET', r'/salud', 'salud', True, 'Estado del servicio y de las dos bases de datos'),
+    ('POST', r'/auth/registro', 'registrar', True, 'Crear una cuenta (nombre, correo, contraseña); deja la sesión iniciada'),
+    ('POST', r'/auth/ingresar', 'ingresar', True, 'Iniciar sesión con correo y contraseña; devuelve el token de sesión'),
+    ('GET', r'/auth/sesion', 'sesion', False, 'Cuenta de la sesión actual (y token renovado)'),
+    ('GET', r'/catalogo', 'catalogo', True, 'Árbol de decisión (categoría → rama → síntomas) y escala de respuestas'),
+    ('POST', r'/diagnostico', 'diagnosticar', False, 'Siguiente pregunta, top 5 con peso probabilístico y explicación'),
+    ('POST', r'/consultas', 'guardar_consulta', False, 'Guardar el diagnóstico a nombre de la cuenta'),
+    ('GET', r'/consultas', 'historial', False, 'Historial de diagnósticos de la cuenta'),
+    ('GET', r'/consultas/(\d+)', 'consulta', False, 'Razonamiento de un diagnóstico guardado (solo los propios)'),
+    ('GET', r'/consultas/(\d+)/informe', 'informe', False, 'Informe en texto de un diagnóstico (solo los propios)'),
+    ('GET', r'/conocimiento/hipotesis', 'hipotesis', True, 'Hipótesis de la base de conocimiento'),
+    ('GET', r'/conocimiento/hipotesis/(\d+)', 'granulos_de_hipotesis', True, 'Gránulos (If / And / Then) de una hipótesis'),
+    ('GET', r'/conocimiento/evidencias', 'evidencias', True, 'Síntomas y pruebas'),
 ]

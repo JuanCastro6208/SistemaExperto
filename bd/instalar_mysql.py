@@ -6,8 +6,8 @@
 Ejecuta, en orden, los mismos scripts que se abren en MySQL Workbench:
     bd/mysql/01_kb_esquema.sql                        base de conocimiento: hipotesis, evidencia, granulo
     bd/02_kb_datos.sql                                conocimiento del experto (38 hipótesis, 88 reglas)
-    bd/mysql/03_trx_esquema.sql                       base transaccional (diagnósticos y sus disparadores)
-    bd/04_trx_datos.sql                               escala de respuestas
+    bd/mysql/03_trx_esquema.sql                       base transaccional (cuentas, diagnósticos y disparadores)
+    bd/04_trx_datos.sql                               escala de respuestas y cuenta de demostración
     bd/mysql/05_roles_permisos.sql                    rol de MySQL de la cuenta del servicio web
     bd/mysql/06_consultas_granulos_por_hipotesis.sql  vistas y procedimientos de consulta de la BC
 

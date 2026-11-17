@@ -1,12 +1,12 @@
 -- =====================================================================
 -- SEDATI - Permisos en el motor de base de datos (MySQL 8.0)
 --
--- El sistema no tiene cuentas ni roles de usuario: la persona entra escribiendo su nombre.
--- Solo existe la cuenta con la que se conecta el servicio web (AWS Lambda o servidor local),
--- y recibe el rol sedati_aplicacion. Ningún permiso incluye DELETE (los disparadores también
+-- Las cuentas de los usuarios del sistema viven en la tabla sedati_trx.usuario (no son usuarios de
+-- MySQL). En el motor solo existe la cuenta con la que se conecta el servicio web (AWS Lambda o
+-- servidor local), y recibe el rol sedati_aplicacion. Ningún permiso incluye DELETE (los disparadores también
 -- rechazan el borrado).
 --
---   sedati_aplicacion  lee la base de conocimiento y registra los diagnósticos
+--   sedati_aplicacion  lee la base de conocimiento, registra las cuentas y los diagnósticos
 -- =====================================================================
 
 -- Roles de versiones anteriores. sedati_aplicacion no se borra: si ya existe, se conserva para que

@@ -2,8 +2,8 @@
 -- SEDATI - Base transaccional (sedati_trx) para SQLite
 -- Equivalente a bd/mysql/03_trx_esquema.sql (archivo bd/sedati_trx.db).
 --
--- Registra cada consulta al sistema experto: quién consultó (solo su nombre, no hay cuentas
--- ni roles), lo que respondió y las hipótesis que propuso el motor de inferencia.
+-- Registra las cuentas de usuario (un solo tipo de cuenta, sin roles) y cada consulta al sistema
+-- experto: quién consultó, lo que respondió y las hipótesis que propuso el motor de inferencia.
 -- No tiene llaves foráneas hacia sedati_kb: la une por los códigos estables HIP-, E-, R-
 -- y la letra de la categoría, que la base de conocimiento nunca modifica.
 -- =====================================================================
@@ -13,6 +13,7 @@ PRAGMA foreign_keys = ON;
 DROP TABLE IF EXISTS diagnostico_hipotesis;
 DROP TABLE IF EXISTS incidente_evidencia;
 DROP TABLE IF EXISTS diagnostico;
+DROP TABLE IF EXISTS usuario;
 DROP TABLE IF EXISTS escala_respuesta;
 
 -- Respuestas graduadas: la persona no responde solo "sí" o "no", indica qué tan segura está.
@@ -24,9 +25,22 @@ CREATE TABLE escala_respuesta (
     color    CHAR(7)      NOT NULL
 );
 
+-- Cuentas de usuario: cada persona crea la suya e inicia sesión con correo y contraseña.
+CREATE TABLE usuario (
+    id                INTEGER      NOT NULL PRIMARY KEY,
+    nombre            VARCHAR(80)  NOT NULL CHECK (length(trim(nombre)) > 1),
+    correo            VARCHAR(120) NOT NULL UNIQUE COLLATE NOCASE,
+    contrasena_hash   VARCHAR(255) NOT NULL CHECK (contrasena_hash LIKE 'pbkdf2_sha256$%'),
+    intentos_fallidos INTEGER      NOT NULL DEFAULT 0,
+    bloqueado_hasta   DATETIME     NULL,
+    ultimo_ingreso    DATETIME     NULL,
+    creado_en         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Cada ejecución del motor de inferencia.
 CREATE TABLE diagnostico (
     id               INTEGER      NOT NULL PRIMARY KEY,
+    usuario_id       INTEGER      NULL REFERENCES usuario (id),
     nombre_usuario   VARCHAR(80)  NOT NULL CHECK (length(trim(nombre_usuario)) > 0),
     categoria_codigo CHAR(1)      NULL CHECK (categoria_codigo IS NULL OR categoria_codigo BETWEEN 'A' AND 'G'),
     estado           VARCHAR(10)  NOT NULL DEFAULT 'EN_CURSO' CHECK (estado IN ('EN_CURSO','FINALIZADO','CANCELADO')),
@@ -38,6 +52,7 @@ CREATE TABLE diagnostico (
     fecha_inicio     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_fin        DATETIME     NULL
 );
+CREATE INDEX ix_diagnostico_usuario ON diagnostico (usuario_id);
 
 -- Síntomas y resultados de pruebas observados en cada diagnóstico.
 CREATE TABLE incidente_evidencia (
@@ -74,6 +89,7 @@ CREATE TABLE diagnostico_hipotesis (
 
 -- Nada se elimina.
 CREATE TRIGGER tr_escala_no_borrar BEFORE DELETE ON escala_respuesta BEGIN SELECT RAISE(ABORT, 'Los registros no se eliminan.'); END;
+CREATE TRIGGER tr_usuario_no_borrar BEFORE DELETE ON usuario BEGIN SELECT RAISE(ABORT, 'Las cuentas no se eliminan.'); END;
 CREATE TRIGGER tr_diagnostico_no_borrar BEFORE DELETE ON diagnostico BEGIN SELECT RAISE(ABORT, 'Los diagnósticos no se eliminan.'); END;
 CREATE TRIGGER tr_ie_no_borrar BEFORE DELETE ON incidente_evidencia BEGIN SELECT RAISE(ABORT, 'Las evidencias registradas no se eliminan.'); END;
 CREATE TRIGGER tr_dh_no_borrar BEFORE DELETE ON diagnostico_hipotesis BEGIN SELECT RAISE(ABORT, 'Las hipótesis de un diagnóstico no se eliminan.'); END;

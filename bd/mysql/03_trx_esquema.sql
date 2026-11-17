@@ -1,8 +1,8 @@
 -- =====================================================================
 -- SEDATI - Base transaccional (sedati_trx) para MySQL 8.0 (InnoDB, utf8mb4)
 --
--- Registra cada consulta al sistema experto: quién consultó (solo su nombre, no hay cuentas
--- ni roles), lo que respondió y las hipótesis que propuso el motor de inferencia.
+-- Registra las cuentas de usuario (un solo tipo de cuenta, sin roles) y cada consulta al sistema
+-- experto: quién consultó, lo que respondió y las hipótesis que propuso el motor de inferencia.
 -- No tiene llaves foráneas hacia sedati_kb: la une por los códigos estables HIP-, E-, R-
 -- y la letra de la categoría, que la base de conocimiento nunca modifica.
 -- =====================================================================
@@ -11,7 +11,7 @@ CREATE DATABASE IF NOT EXISTS sedati_trx CHARACTER SET utf8mb4 COLLATE utf8mb4_0
 USE sedati_trx;
 
 SET FOREIGN_KEY_CHECKS = 0;
--- Tablas de versiones anteriores (cuentas, roles, incidentes, citas…), por si la base ya existía.
+-- Tablas de versiones anteriores (roles, incidentes, citas…), por si la base ya existía.
 DROP TABLE IF EXISTS auditoria_conocimiento;
 DROP TABLE IF EXISTS escalamiento;
 DROP TABLE IF EXISTS intervencion;
@@ -21,7 +21,6 @@ DROP TABLE IF EXISTS incidente;
 DROP TABLE IF EXISTS equipo;
 DROP TABLE IF EXISTS tipo_equipo;
 DROP TABLE IF EXISTS bitacora_acceso;
-DROP TABLE IF EXISTS usuario;
 DROP TABLE IF EXISTS dependencia;
 DROP TABLE IF EXISTS rol_permiso;
 DROP TABLE IF EXISTS modulo;
@@ -30,6 +29,7 @@ DROP TABLE IF EXISTS rol;
 DROP TABLE IF EXISTS diagnostico_hipotesis;
 DROP TABLE IF EXISTS incidente_evidencia;
 DROP TABLE IF EXISTS diagnostico;
+DROP TABLE IF EXISTS usuario;
 DROP TABLE IF EXISTS escala_respuesta;
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -43,9 +43,25 @@ CREATE TABLE escala_respuesta (
     CONSTRAINT ck_escala_valor CHECK (valor BETWEEN -1 AND 1)
 ) ENGINE = InnoDB COMMENT = 'Respuestas graduadas (no solo sí / no)';
 
+CREATE TABLE usuario (
+    id                BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    nombre            VARCHAR(80)      NOT NULL,
+    correo            VARCHAR(120)     NOT NULL COMMENT 'Se guarda en minúsculas; con él se inicia sesión',
+    contrasena_hash   VARCHAR(255)     NOT NULL COMMENT 'PBKDF2-HMAC-SHA256 con sal; nunca la contraseña',
+    intentos_fallidos TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    bloqueado_hasta   DATETIME         NULL COMMENT 'Bloqueo temporal tras 5 intentos fallidos',
+    ultimo_ingreso    DATETIME         NULL,
+    creado_en         DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_usuario_correo (correo),
+    CONSTRAINT ck_usuario_nombre CHECK (CHAR_LENGTH(TRIM(nombre)) > 1),
+    CONSTRAINT ck_usuario_hash CHECK (contrasena_hash LIKE 'pbkdf2_sha256$%')
+) ENGINE = InnoDB COMMENT = 'Cuentas de usuario (un solo tipo de cuenta, sin roles)';
+
 CREATE TABLE diagnostico (
     id               BIGINT UNSIGNED   NOT NULL AUTO_INCREMENT,
-    nombre_usuario   VARCHAR(80)       NOT NULL COMMENT 'Nombre que escribió la persona al entrar («¿Cómo te llamas?»)',
+    usuario_id       BIGINT UNSIGNED   NULL     COMMENT 'Cuenta con la que se inició sesión',
+    nombre_usuario   VARCHAR(80)       NOT NULL COMMENT 'Nombre de la cuenta al momento del diagnóstico',
     categoria_codigo CHAR(1)           NULL     COMMENT 'Categoría del árbol que eligió (A a G)',
     estado           ENUM('EN_CURSO','FINALIZADO','CANCELADO') NOT NULL DEFAULT 'EN_CURSO',
     total_preguntas  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
@@ -57,6 +73,8 @@ CREATE TABLE diagnostico (
     fecha_fin        DATETIME          NULL,
     PRIMARY KEY (id),
     KEY ix_diagnostico_nombre (nombre_usuario),
+    KEY ix_diagnostico_usuario (usuario_id),
+    CONSTRAINT fk_diagnostico_usuario FOREIGN KEY (usuario_id) REFERENCES usuario (id),
     CONSTRAINT ck_diagnostico_nombre CHECK (CHAR_LENGTH(TRIM(nombre_usuario)) > 0),
     CONSTRAINT ck_diagnostico_categoria CHECK (categoria_codigo IS NULL OR categoria_codigo BETWEEN 'A' AND 'G')
 ) ENGINE = InnoDB COMMENT = 'Cada ejecución del motor de inferencia';
@@ -105,6 +123,8 @@ DELIMITER $$
 -- Nada se elimina: el DELETE se rechaza en todas las tablas.
 CREATE TRIGGER tr_escala_no_borrar BEFORE DELETE ON escala_respuesta FOR EACH ROW
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Los registros no se eliminan.'$$
+CREATE TRIGGER tr_usuario_no_borrar BEFORE DELETE ON usuario FOR EACH ROW
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Las cuentas no se eliminan.'$$
 CREATE TRIGGER tr_diagnostico_no_borrar BEFORE DELETE ON diagnostico FOR EACH ROW
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Los diagnósticos no se eliminan.'$$
 CREATE TRIGGER tr_ie_no_borrar BEFORE DELETE ON incidente_evidencia FOR EACH ROW

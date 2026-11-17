@@ -209,7 +209,7 @@ def crear_conexiones(configuracion):
         datos = {k: m[k] for k in ('host', 'port', 'user', 'password')}
         return (ConexionMySQL(database=m['base_kb'], **datos), ConexionMySQL(database=m['base_trx'], **datos))
     kb = ConexionSQLite(configuracion.ruta_sqlite_kb, SCRIPTS_SQLITE_KB)
-    trx = ConexionSQLite(configuracion.ruta_sqlite_trx, SCRIPTS_SQLITE_TRX, ('diagnostico', 'nombre_usuario'))
+    trx = ConexionSQLite(configuracion.ruta_sqlite_trx, SCRIPTS_SQLITE_TRX, ('diagnostico', 'usuario_id'))
     return kb, trx
 
 

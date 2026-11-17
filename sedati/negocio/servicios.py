@@ -1,5 +1,5 @@
 """Servicios del sistema experto: el diagnóstico con el motor de inferencia y la consulta del conocimiento."""
-from . import explicacion
+from . import arbol_decision, explicacion
 from .errores import ErrorNegocio, NoEncontrado
 from .fabrica import evidencia_desde, granulos_desde
 from .modelos import OpcionRespuesta
@@ -136,7 +136,10 @@ class ServicioDiagnostico:
 
     def arbol(self):
         """El árbol de decisión en el orden en que se recorre: categoría (A. Energía y arranque primero,
-        luego B, C...) → ramas → síntomas con los que empiezan sus reglas."""
+        luego B, C...) → ramas → detalles → causas, como en la figura del árbol completo.
+
+        Cada rama trae «nodo» (la pregunta de Sí / No con sus detalles; ver arbol_decision.py) y «sintomas»
+        (los síntomas con los que empiezan sus reglas, para elegirlos directamente de la lista completa)."""
         categorias = {}
         for f in self._kb.ramas():
             c = categorias.setdefault(f['categoria_codigo'], {'codigo': f['categoria_codigo'],
@@ -144,10 +147,24 @@ class ServicioDiagnostico:
             r = c['ramas'].setdefault(f['rama_codigo'], {'codigo': f['rama_codigo'], 'nombre': f['rama_nombre'],
                                                          'sintomas': []})
             r['sintomas'].append({'id': f['id'], 'codigo': f['codigo'], 'enunciado': f['enunciado']})
+        ids = {f['codigo']: f['id'] for f in self._kb.evidencias_por_codigos(sorted(arbol_decision.codigos_usados()))}
         salida = []
         for codigo in sorted(categorias):
             c = categorias[codigo]
-            salida.append(dict(c, ramas=[c['ramas'][r] for r in sorted(c['ramas'])]))
+            ramas = []
+            for rc in sorted(c['ramas']):
+                r = c['ramas'][rc]
+                definido = arbol_decision.ARBOL.get(rc)
+                if definido:
+                    r['nodo'] = arbol_decision.resolver(definido, ids, rc)
+                else:   # rama nueva en la base sin pregunta redactada: cada síntoma de entrada es un detalle
+                    r['nodo'] = {'id': rc, 'pregunta': f'¿{r["nombre"]}?', 'si': [], 'no': [], 'causas': [],
+                                 'hijos': [{'id': f'{rc}.{i + 1}', 'pregunta': f'¿{s["enunciado"][0].upper()}{s["enunciado"][1:]}?',
+                                            'si': [{'evidencia_id': s['id'], 'codigo': s['codigo'], 'escala': 'SI'}],
+                                            'no': [], 'causas': [], 'hijos': []}
+                                           for i, s in enumerate(r['sintomas'])]}
+                ramas.append(r)
+            salida.append(dict(c, ramas=ramas))
         return salida
 
     def ids_de_hipotesis(self, codigos):
@@ -158,9 +175,10 @@ class ServicioDiagnostico:
         return ' '.join(str(nombre or '').split())[:80]
 
     def iniciar(self, sintoma_ids, equipo='', ubicacion='', descripcion='', registrar=True, nombre='',
-                categoria=None, descartadas=()):
-        """Abre un diagnóstico. nombre: quien consulta (obligatorio si se registra); categoria: letra de la
-        categoría del árbol que eligió; descartadas: códigos HIP-NN que no se deben proponer."""
+                categoria=None, descartadas=(), usuario_id=None):
+        """Abre un diagnóstico. nombre: quien consulta (obligatorio si se registra); usuario_id: la cuenta
+        con la que inició sesión (el servicio web siempre la envía; la aplicación de escritorio no);
+        categoria: letra de la categoría del árbol que eligió; descartadas: códigos HIP-NN que no se proponen."""
         if not sintoma_ids:
             raise ErrorNegocio('Marque al menos un síntoma para iniciar el diagnóstico.')
         if categoria and (not isinstance(categoria, str) or len(categoria) != 1 or not 'A' <= categoria.upper() <= 'G'):
@@ -176,7 +194,7 @@ class ServicioDiagnostico:
         diagnostico_id = None
         if registrar:
             diagnostico_id = self._diagnosticos.crear(nombre, categoria, self.parametros.como_texto(), datos,
-                                                      _texto_fecha(self._reloj()))
+                                                      _texto_fecha(self._reloj()), usuario_id)
             for r in motor.memoria.respuestas_en_orden():
                 self._diagnosticos.guardar_respuesta(diagnostico_id, r.orden, r.evidencia.codigo, r.escala_codigo,
                                                      r.valor, r.origen, _texto_fecha(self._reloj()))
@@ -195,14 +213,15 @@ class ServicioDiagnostico:
         return ev
 
     def reproducir(self, sintoma_ids, respuestas, equipo='', ubicacion='', descripcion='', registrar=False,
-                   nombre='', categoria=None, descartadas=()):
+                   nombre='', categoria=None, descartadas=(), usuario_id=None):
         """Rehace un diagnóstico a partir de sus síntomas y de la lista de respuestas [(evidencia_id, escala)].
 
         Lo usa el servicio web, que no guarda estado entre peticiones (AWS Lambda): cada petición trae
         todo lo respondido y el motor vuelve a razonar desde cero, con las mismas consultas granulares.
         Con registrar=True el diagnóstico y sus respuestas quedan guardados en sedati_trx.
         """
-        sesion = self.iniciar(sintoma_ids, equipo, ubicacion, descripcion, registrar, nombre, categoria, descartadas)
+        sesion = self.iniciar(sintoma_ids, equipo, ubicacion, descripcion, registrar, nombre, categoria, descartadas,
+                              usuario_id)
         motor = sesion.motor
         for evidencia_id, escala in respuestas:
             ev = self._evidencia(motor, evidencia_id)
@@ -217,9 +236,9 @@ class ServicioDiagnostico:
         sesion.avanzar()
         return sesion
 
-    def historial(self, nombre=None):
-        """Diagnósticos guardados; con nombre, solo los de esa persona."""
-        return self._diagnosticos.listar(nombre_usuario=self.limpiar_nombre(nombre) or None)
+    def historial(self, nombre=None, usuario_id=None):
+        """Diagnósticos guardados; con usuario_id, solo los de esa cuenta; con nombre, solo los de ese nombre."""
+        return self._diagnosticos.listar(nombre_usuario=self.limpiar_nombre(nombre) or None, usuario_id=usuario_id)
 
     def entradas_guardadas(self, diagnostico_id):
         """(síntomas iniciales, respuestas [(evidencia_id, escala)]) de un diagnóstico guardado."""
@@ -230,10 +249,11 @@ class ServicioDiagnostico:
                      if r.origen == 'PREGUNTA' and r.evidencia_codigo in ids]
         return iniciales, preguntas
 
-    def reconstruir(self, diagnostico_id, descartadas=()):
-        """Vuelve a ejecutar un diagnóstico guardado para ver su razonamiento (sin modificarlo)."""
+    def reconstruir(self, diagnostico_id, descartadas=(), usuario_id=None):
+        """Vuelve a ejecutar un diagnóstico guardado para ver su razonamiento (sin modificarlo).
+        Con usuario_id solo se entrega si pertenece a esa cuenta (si no, es como si no existiera)."""
         d = self._diagnosticos.por_id(diagnostico_id)
-        if not d:
+        if not d or (usuario_id is not None and d.usuario_id != usuario_id):
             raise NoEncontrado(f'No existe el diagnóstico {diagnostico_id}.')
         iniciales, preguntas = self.entradas_guardadas(diagnostico_id)
         if not iniciales:

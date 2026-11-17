@@ -306,7 +306,7 @@ body.ocupado .opcion, body.ocupado .botones-arbol .boton, body.ocupado #boton-in
 .estado.FINALIZADO { background: var(--exito-suave); color: var(--exito); }
 .estado.CANCELADO { background: var(--peligro-fondo); color: var(--peligro); }
 
-body.sin-nombre .pestanas, body.sin-nombre .usuario-actual { display: none; }
+body.sin-sesion .pestanas, body.sin-sesion .usuario-actual { display: none; }
 .usuario-actual { display: flex; align-items: center; gap: 10px; }
 .usuario-actual .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--acento-suave); color: var(--acento);
   display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
@@ -380,7 +380,43 @@ body.sin-nombre .pestanas, body.sin-nombre .usuario-actual { display: none; }
   input[type="search"] { width: 100%; }
 }
 
-/* ------------------------------------------------------------ barra con el nombre ya escrito */
-body:not(.sin-nombre) .estado-servicio { margin-left: auto; }
-body:not(.sin-nombre) .barra { gap: 14px; }
-body:not(.sin-nombre) .pestanas { margin-left: 4px; min-width: 0; }
+/* ------------------------------------------------------------ barra con la sesión iniciada */
+body:not(.sin-sesion) .estado-servicio { margin-left: auto; }
+body:not(.sin-sesion) .barra { gap: 14px; }
+body:not(.sin-sesion) .pestanas { margin-left: 4px; min-width: 0; }
+
+/* ================================================================ acceso: iniciar sesión / crear cuenta */
+.selector-acceso { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 22px;
+  background: var(--fondo); border: 1px solid var(--borde); border-radius: 10px; }
+.selector-acceso button { border: 0; background: transparent; color: var(--texto-suave); font: inherit; font-weight: 600;
+  padding: 9px 10px; border-radius: 7px; cursor: pointer; }
+.selector-acceso button.activa { background: var(--tarjeta); color: var(--texto); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.selector-acceso button:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
+.bienvenida-tarjeta form { display: flex; flex-direction: column; gap: 12px; }
+.bienvenida-tarjeta form[hidden] { display: none; }
+.bienvenida-tarjeta form h1 { margin: 0; }
+.bienvenida-tarjeta form .ayuda { margin: 0; }
+.bienvenida-tarjeta form label { margin-top: 0; }
+.nota-demo { font-size: 12px; }
+.metodo-candado { margin-left: 4px; font-size: 12px; }
+
+/* ================================================================ recorrido con Sí / No */
+.migas { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.migas i { font-style: normal; color: var(--texto-suave); }
+.migas span:last-child { color: var(--texto); }
+.titulo-camino { margin: 16px 0 6px; font-weight: 600; }
+.camino { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.camino li { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; font-size: 13px;
+  padding: 5px 8px; margin-left: calc(var(--nivel, 0) * 14px); border-left: 3px solid var(--borde); border-radius: 0 6px 6px 0;
+  background: var(--tarjeta-suave); }
+.camino li b { font-size: 12px; flex: none; }
+.camino li.si { border-left-color: var(--exito); }
+.camino li.si b { color: var(--exito); }
+.camino li.no { color: var(--texto-suave); }
+.causas-hoja { margin: 6px 0 0; padding-left: 20px; font-size: 14px; }
+.causas-hoja li { margin-top: 3px; }
+
+@media (max-width: 1080px) {
+  /* en pantallas angostas la pregunta del árbol va antes del panel con el recorrido */
+  .rejilla-arbol .pregunta-arbol { order: -1; }
+}

@@ -4,8 +4,10 @@
  * API REST (AWS Lambda + API Gateway) y muestra lo que el motor responde. El servicio no guarda
  * estado entre peticiones, así que el cliente conserva la lista de respuestas y la envía completa.
  *
- * No hay inicio de sesión: la persona escribe su nombre («¿Cómo te llamas?») y ese nombre viaja con
- * cada diagnóstico que guarda. El diagnóstico empieza recorriendo el árbol de decisión en orden:
+ * Inicio de sesión: la persona crea su cuenta o ingresa con su correo y su contraseña. El servicio
+ * responde un token firmado que viaja en la cabecera «Authorization: Bearer <token>» y que el servicio
+ * renueva en cada respuesta; si vence (minutos sin actividad), se vuelve a la pantalla de acceso.
+ * Cada diagnóstico guardado queda a nombre de la cuenta. El diagnóstico recorre el árbol de decisión en orden:
  * A. Energía y arranque → B. Video y pantalla → C. Sistema operativo… → G. Software y accesos.
  */
 'use strict';
@@ -14,11 +16,14 @@ const API = ((window.SEDATI_CONFIG && window.SEDATI_CONFIG.apiUrl) || '').replac
 const SERIE = ['#1F6FEB', '#13A89E', '#F2A541', '#8E6CEF', '#E5646E'];
 
 const estado = {
-  nombre: '',
+  usuario: null,           // {id, nombre, correo} de la sesión iniciada
+  token: null,             // token de sesión firmado por el servicio
   catalogo: null,
   escala: [],
-  arbol: { indice: 0, fase: 'categoria', respuestas: {} },   // recorrido del árbol de decisión
+  arbol: null,             // recorrido del árbol de decisión (ver arbolNuevo)
   categoria: null,         // letra de la categoría en la que se respondió «Sí» (null si se eligió de la lista completa)
+  hoja: null,              // nodo del árbol donde terminó el recorrido: {pregunta, causas, pasos}
+  respuestasArbol: [],     // [{evidencia_id, escala: 'NO'}] lo que se negó con «No» dentro de la rama
   sintomas: new Set(),     // id de evidencia elegidos como síntomas iniciales
   respuestas: [],          // [{evidencia_id, escala}] en el orden en que se respondieron
   sesion: null,            // última respuesta de la API (estado completo de la consulta)
@@ -55,6 +60,7 @@ function aviso(texto, error = false) {
 
 async function api(ruta, opciones = {}) {
   const init = { method: opciones.method || 'GET', headers: {} };
+  if (estado.token) init.headers.Authorization = `Bearer ${estado.token}`;
   if (opciones.body !== undefined) {
     init.headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(opciones.body);
@@ -67,7 +73,11 @@ async function api(ruta, opciones = {}) {
   }
   let datos = null;
   try { datos = await respuesta.json(); } catch (e) { /* respuesta sin JSON */ }
+  if (respuesta.status === 401 && estado.token && !opciones.sinRedirigir) {
+    cerrarSesion((datos && datos.error) || 'La sesión venció. Inicia sesión de nuevo.');
+  }
   if (!respuesta.ok) throw new Error((datos && datos.error) || `El servicio respondió ${respuesta.status}.`);
+  if (datos && datos._sesion) guardarToken(datos._sesion.token);
   return datos;
 }
 
@@ -76,43 +86,107 @@ async function ocupado(promesa) {
   try { return await promesa; } finally { document.body.classList.remove('ocupado'); }
 }
 
-// ================================================================ nombre («¿Cómo te llamas?»)
-function nombreGuardado() {
-  try { return sessionStorage.getItem('sedati_nombre') || ''; } catch (e) { return ''; }
+// ================================================================ sesión: iniciar sesión / crear cuenta
+function guardarToken(token) {
+  estado.token = token || null;
+  try { if (token) sessionStorage.setItem('sedati_token', token); else sessionStorage.removeItem('sedati_token'); } catch (e) { /* sin almacenamiento */ }
 }
 
-function fijarNombre(nombre) {
-  estado.nombre = nombre;
-  try { if (nombre) sessionStorage.setItem('sedati_nombre', nombre); else sessionStorage.removeItem('sedati_nombre'); } catch (e) { /* sin almacenamiento */ }
-  document.body.classList.toggle('sin-nombre', !nombre);
+function tokenGuardado() {
+  try { return sessionStorage.getItem('sedati_token'); } catch (e) { return null; }
+}
+
+function fijarUsuario(usuario) {
+  estado.usuario = usuario || null;
+  const nombre = usuario ? usuario.nombre : '';
+  document.body.classList.toggle('sin-sesion', !usuario);
   $('#usuario-nombre').textContent = nombre;
+  $('#usuario-correo').textContent = usuario ? usuario.correo : '';
   $('#usuario-iniciales').textContent = nombre.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('');
 }
 
-function pedirNombre() {
-  const anterior = estado.nombre;
-  fijarNombre('');
-  $('#campo-nombre').value = anterior;
-  mostrarVista('bienvenida');
-  setTimeout(() => $('#campo-nombre').focus(), 50);
+function modoAcceso(modo) {
+  document.querySelectorAll('.selector-acceso [data-modo]').forEach((b) => {
+    const activo = b.dataset.modo === modo;
+    b.classList.toggle('activa', activo);
+    b.setAttribute('aria-selected', String(activo));
+  });
+  $('#form-ingresar').hidden = modo !== 'ingresar';
+  $('#form-registro').hidden = modo !== 'registro';
+  $('#ingresar-error').textContent = '';
+  $('#registro-error').textContent = '';
+  setTimeout(() => (modo === 'ingresar' ? $('#ingresar-correo') : $('#registro-nombre')).focus(), 30);
 }
 
-function entrar(evento) {
+function sesionIniciada(datos, saludo) {
+  guardarToken(datos._sesion.token);
+  fijarUsuario(datos.usuario);
+  $('#form-ingresar').reset();
+  $('#form-registro').reset();
+  reiniciarArbol();
+  mostrarVista('diagnostico');
+  mostrarEtapa('arbol');
+  aviso(`${saludo}, ${datos.usuario.nombre.split(' ')[0]}!`);
+}
+
+async function ingresar(evento) {
   evento.preventDefault();
-  const nombre = $('#campo-nombre').value.replace(/\s+/g, ' ').trim();
-  if (nombre.length < 2) {
-    $('#nombre-error').textContent = 'Escribe tu nombre para continuar.';
+  const error = $('#ingresar-error');
+  error.textContent = '';
+  try {
+    const datos = await ocupado(api('/auth/ingresar', { method: 'POST', sinRedirigir: true, body: {
+      correo: $('#ingresar-correo').value.trim(), contrasena: $('#ingresar-contrasena').value } }));
+    sesionIniciada(datos, '¡Hola');
+  } catch (e) {
+    error.textContent = e.message;
+    $('#ingresar-contrasena').value = '';
+    $('#ingresar-contrasena').focus();
+  }
+}
+
+async function registrarse(evento) {
+  evento.preventDefault();
+  const error = $('#registro-error');
+  error.textContent = '';
+  const contrasena = $('#registro-contrasena').value;
+  if (contrasena !== $('#registro-confirmacion').value) {
+    error.textContent = 'Las contraseñas no coinciden.';
+    $('#registro-confirmacion').focus();
     return;
   }
-  $('#nombre-error').textContent = '';
-  fijarNombre(nombre);
-  aviso(`¡Hola, ${nombre.split(' ')[0]}!`);
-  mostrarVista('diagnostico');
+  try {
+    const datos = await ocupado(api('/auth/registro', { method: 'POST', sinRedirigir: true, body: {
+      nombre: $('#registro-nombre').value.replace(/\s+/g, ' ').trim(), correo: $('#registro-correo').value.trim(), contrasena } }));
+    sesionIniciada(datos, '¡Cuenta creada. Bienvenido');
+  } catch (e) { error.textContent = e.message; }
+}
+
+function cerrarSesion(mensaje) {
+  guardarToken(null);
+  fijarUsuario(null);
+  reiniciarArbol();
+  estado.origen = 'nueva';
+  modoAcceso('ingresar');
+  mostrarVista('bienvenida');
+  if (mensaje) $('#ingresar-error').textContent = mensaje;
+}
+
+async function restaurarSesion() {
+  const token = tokenGuardado();
+  if (!token) { cerrarSesion(); return; }
+  estado.token = token;
+  try {
+    const datos = await api('/auth/sesion', { sinRedirigir: true });
+    fijarUsuario(datos.usuario);
+    mostrarVista('diagnostico');
+  } catch (e) {
+    cerrarSesion(/venci|válida|sesión/i.test(e.message) ? 'Tu sesión venció. Inicia sesión de nuevo.' : e.message);
+  }
 }
 
 // ================================================================ navegación
 function mostrarVista(nombre) {
-  if (nombre !== 'bienvenida' && !estado.nombre) nombre = 'bienvenida';
+  if (nombre !== 'bienvenida' && !estado.usuario) nombre = 'bienvenida';
   document.querySelectorAll('.pestana').forEach((b) => b.classList.toggle('activa', b.dataset.vista === nombre));
   document.querySelectorAll('.vista').forEach((v) => v.classList.toggle('activa', v.id === `vista-${nombre}`));
   if (nombre === 'conocimiento' && !estado.bcCargada) cargarConocimiento();
@@ -160,35 +234,92 @@ function textoSintoma(id) {
   return `E-${id}`;
 }
 
+// Recorrido del árbol con Sí / No (como la figura del árbol completo):
+//   categoría → situación (rama) → detalle → … → hoja (causas)
+//   · Sí entra al nodo: si tiene hijos pregunta por el primero; si es una hoja, empieza el motor de inferencia.
+//   · No pasa al siguiente nodo del mismo nivel. Si no quedan, sube: siguiente rama o siguiente categoría.
+// Cada nodo trae las evidencias de la base que confirma el Sí y las que niega el No; al llegar a la hoja se
+// envían al motor (las confirmadas como síntomas iniciales y las negadas como respuestas «No»).
+function arbolNuevo() {
+  return { indice: 0, fase: 'categoria', respuestas: {}, camino: [], pos: 0, evid: [], pasos: [], historial: [] };
+}
+
 function reiniciarArbol() {
-  estado.arbol = { indice: 0, fase: 'categoria', respuestas: {} };
+  estado.arbol = arbolNuevo();
   estado.categoria = null;
+  estado.hoja = null;
   estado.sintomas.clear();
+  estado.respuestasArbol = [];
   estado.respuestas = [];
   estado.sesion = null;
   if (estado.catalogo) pintarArbol();
+}
+
+function guardarPaso() {
+  const { historial, ...resto } = estado.arbol;
+  historial.push(JSON.parse(JSON.stringify(resto)));
+}
+
+function atrasArbol() {
+  const a = estado.arbol;
+  if (!a.historial.length) return;
+  estado.arbol = Object.assign(a.historial.pop(), { historial: a.historial });
+  estado.sintomas.clear();
+  pintarArbol();
+}
+
+const categoriaActual = () => categorias()[estado.arbol.indice];
+
+function nodoEn(camino) {
+  let n = categoriaActual().ramas[camino[0]].nodo;
+  for (const k of camino.slice(1)) n = n.hijos[k];
+  return n;
+}
+
+function hermanos() {
+  const a = estado.arbol;
+  return a.camino.length ? nodoEn(a.camino).hijos : categoriaActual().ramas.map((r) => r.nodo);
 }
 
 function pintarRecorrido() {
   const a = estado.arbol;
   $('#recorrido').innerHTML = categorias().map((c, i) => {
     const r = a.respuestas[c.codigo];
-    const actual = a.fase !== 'todos' && a.fase !== 'ninguna' && i === a.indice;
-    const clase = actual ? 'actual' : r === 'si' ? 'si' : r === 'no' ? 'no' : '';
-    const marca = actual ? '← aquí' : r === 'si' ? 'Sí' : r === 'no' ? 'No' : '';
+    const actual = (a.fase === 'categoria' || a.fase === 'nodo') && i === a.indice;
+    const clase = actual ? (a.fase === 'nodo' ? 'actual si' : 'actual') : r === 'si' ? 'si' : r === 'no' ? 'no' : '';
+    const marca = actual ? (a.fase === 'nodo' ? 'Sí · aquí' : '← aquí') : r === 'si' ? 'Sí' : r === 'no' ? 'No' : '';
     return `<li class="${clase}"><span class="letra">${esc(c.codigo)}</span><span>${esc(c.nombre)}</span>
       <span class="marca-paso">${marca}</span></li>`;
   }).join('');
+  const caja = $('#camino-arbol');
+  caja.innerHTML = a.fase === 'nodo' && a.pasos.length ? `
+    <p class="ayuda titulo-camino">Respuestas en ${esc(categoriaActual().codigo)}. ${esc(categoriaActual().nombre)}</p>
+    <ol class="camino">${a.pasos.map((p) => `<li class="${p.si ? 'si' : 'no'}" style="--nivel:${p.nivel}">
+      <span>${esc(p.pregunta)}</span><b>${p.si ? 'Sí' : 'No'}</b></li>`).join('')}</ol>` : '';
 }
 
 function pintarArbol() {
   pintarRecorrido();
   const a = estado.arbol;
   if (a.fase === 'categoria') pintarPreguntaCategoria();
-  else if (a.fase === 'ramas') pintarRamas([categorias()[a.indice]]);
-  else if (a.fase === 'todos') pintarRamas(categorias());
+  else if (a.fase === 'nodo') pintarPreguntaNodo();
+  else if (a.fase === 'todos') pintarTodas();
   else pintarNinguna();
 }
+
+function botonesSiNo(caja, alSi, alNo) {
+  caja.querySelector('[data-arbol=si]').addEventListener('click', alSi);
+  caja.querySelector('[data-arbol=no]').addEventListener('click', alNo);
+  const atras = caja.querySelector('[data-arbol=atras]');
+  if (atras) atras.addEventListener('click', atrasArbol);
+}
+
+const htmlBotonesSiNo = () => `
+    <div class="botones-arbol">
+      <button class="boton grande exito" data-arbol="si" title="Tecla S">Sí</button>
+      <button class="boton grande secundario" data-arbol="no" title="Tecla N">No</button>
+      ${estado.arbol.historial.length ? '<button class="boton grande secundario" data-arbol="atras">← Atrás</button>' : ''}
+    </div>`;
 
 function pintarPreguntaCategoria() {
   const a = estado.arbol;
@@ -196,65 +327,141 @@ function pintarPreguntaCategoria() {
   const c = cats[a.indice];
   const caja = $('#tarjeta-arbol');
   caja.innerHTML = `
-    <p class="paso">Pregunta ${a.indice + 1} de ${cats.length} · Categoría ${esc(c.codigo)} del árbol</p>
+    <p class="paso">Pregunta ${a.indice + 1} de ${cats.length}</p>
     <div class="progreso"><span style="width:${((a.indice) / cats.length) * 100}%"></span></div>
     <p class="pregunta-texto">¿La falla tiene que ver con ${esc(minuscula(c.nombre))}?</p>
     <div class="ejemplos">Por ejemplo:
       <ul>${c.ramas.map((r) => `<li>${esc(mayuscula(r.nombre))}</li>`).join('')}</ul>
     </div>
-    <div class="botones-arbol">
-      <button class="boton grande exito" data-arbol="si" title="Tecla S">Sí</button>
-      <button class="boton grande secundario" data-arbol="no" title="Tecla N">No</button>
-      ${a.indice > 0 ? '<button class="boton grande secundario" data-arbol="atras">← Atrás</button>' : ''}
-    </div>`;
-  caja.querySelector('[data-arbol=si]').addEventListener('click', () => responderCategoria(true));
-  caja.querySelector('[data-arbol=no]').addEventListener('click', () => responderCategoria(false));
-  const atras = caja.querySelector('[data-arbol=atras]');
-  if (atras) atras.addEventListener('click', atrasArbol);
+    ${htmlBotonesSiNo()}`;
+  botonesSiNo(caja, () => responderCategoria(true), () => responderCategoria(false));
 }
 
 function responderCategoria(si) {
+  guardarPaso();
   const a = estado.arbol;
-  const c = categorias()[a.indice];
-  a.respuestas[c.codigo] = si ? 'si' : 'no';
+  a.respuestas[categoriaActual().codigo] = si ? 'si' : 'no';
   if (si) {
-    a.fase = 'ramas';
-    estado.sintomas.clear();
-  } else if (a.indice < categorias().length - 1) {
+    Object.assign(a, { fase: 'nodo', camino: [], pos: 0, evid: [], pasos: [] });
+  } else {
+    siguienteCategoria();
+  }
+  pintarArbol();
+}
+
+function siguienteCategoria() {
+  const a = estado.arbol;
+  a.respuestas[categoriaActual().codigo] = 'no';
+  Object.assign(a, { camino: [], pos: 0, evid: [], pasos: [] });
+  if (a.indice < categorias().length - 1) {
     a.indice += 1;
+    a.fase = 'categoria';
   } else {
     a.fase = 'ninguna';
   }
-  pintarArbol();
 }
 
-function atrasArbol() {
+function pintarPreguntaNodo() {
   const a = estado.arbol;
-  if (a.fase === 'todos') {
-    a.fase = 'ninguna';
-  } else if (a.fase === 'ramas' || a.fase === 'ninguna') {
-    delete a.respuestas[categorias()[a.indice].codigo];
-    a.fase = 'categoria';
-  } else if (a.indice > 0) {
-    a.indice -= 1;
-    delete a.respuestas[categorias()[a.indice].codigo];
-  }
-  estado.sintomas.clear();
-  pintarArbol();
-}
-
-function pintarRamas(lista) {
-  const a = estado.arbol;
-  const todas = a.fase === 'todos';
-  const c = lista[0];
-  const siguiente = !todas && a.indice < categorias().length - 1 ? categorias()[a.indice + 1] : null;
+  const lista = hermanos();
+  const nodo = lista[a.pos];
+  const c = categoriaActual();
+  const migas = [`${c.codigo}. ${c.nombre}`, ...a.camino.map((_, i) => nodoEn(a.camino.slice(0, i + 1)).pregunta)];
   const caja = $('#tarjeta-arbol');
   caja.innerHTML = `
-    <p class="paso">${todas ? 'Todas las categorías del árbol' : `Categoría ${esc(c.codigo)} · ${esc(c.nombre)}`}</p>
-    <p class="pregunta-texto">${todas ? '¿Qué ocurre con el equipo?' : '¿Qué ocurre exactamente?'}</p>
+    <p class="paso migas">${migas.map((m) => `<span>${esc(m)}</span>`).join('<i>›</i>')}</p>
+    <p class="pregunta-texto">${esc(nodo.pregunta)}</p>
+    ${htmlBotonesSiNo()}`;
+  botonesSiNo(caja, () => responderNodo(true), () => responderNodo(false));
+}
+
+function responderNodo(si) {
+  guardarPaso();
+  const a = estado.arbol;
+  const lista = hermanos();
+  const nodo = lista[a.pos];
+  a.pasos.push({ pregunta: nodo.pregunta, si, nivel: a.camino.length });
+  a.evid.push(...(si ? nodo.si : nodo.no));
+  if (si) {
+    if (nodo.hijos.length) {
+      a.camino.push(a.pos);
+      a.pos = 0;
+      pintarArbol();
+    } else {
+      terminarArbol(nodo);
+    }
+    return;
+  }
+  a.pos += 1;
+  if (a.pos >= lista.length) {
+    agotarNivel();
+    if (estado.arbol.fase === 'motor') return;
+  }
+  pintarArbol();
+}
+
+// Se respondió No a todas las opciones de un nivel.
+function agotarNivel() {
+  const a = estado.arbol;
+  if (!a.camino.length) { siguienteCategoria(); return; }          // ninguna rama de la categoría
+  const padre = nodoEn(a.camino);
+  if (a.evid.some((e) => e.escala === 'SI')) { terminarArbol(padre); return; }   // ya hay síntomas: sigue el motor
+  // la rama no aportó ningún síntoma: se pasa a la siguiente rama de la categoría
+  a.pos = a.camino[0] + 1;
+  a.camino = [];
+  a.evid = [];
+  if (a.pos >= categoriaActual().ramas.length) siguienteCategoria();
+}
+
+function causasDe(nodo) {
+  return nodo.causas.length ? nodo.causas : nodo.hijos.flatMap(causasDe);
+}
+
+async function terminarArbol(nodo) {
+  const a = estado.arbol;
+  const finales = new Map();
+  a.evid.forEach((e) => { finales.delete(e.evidencia_id); finales.set(e.evidencia_id, e.escala); });
+  estado.sintomas = new Set([...finales].filter(([, v]) => v === 'SI').map(([id]) => id));
+  estado.respuestasArbol = [...finales].filter(([, v]) => v === 'NO').map(([id]) => ({ evidencia_id: id, escala: 'NO' }));
+  if (!estado.sintomas.size) {     // por si acaso: los síntomas de entrada de la rama
+    categoriaActual().ramas[a.camino[0] ?? a.pos].sintomas.forEach((s) => estado.sintomas.add(s.id));
+  }
+  estado.hoja = { pregunta: nodo.pregunta, causas: causasDe(nodo), pasos: a.pasos.slice(), categoria: categoriaActual() };
+  a.fase = 'motor';
+  await iniciar(categoriaActual().codigo);
+}
+
+// ---------------------------------------------------------------- sin coincidencia: lista completa
+function pintarNinguna() {
+  const caja = $('#tarjeta-arbol');
+  caja.innerHTML = `
+    <p class="paso">Fin del árbol de decisión</p>
+    <p class="pregunta-texto">La falla no coincide con ninguna categoría</p>
+    <p class="ayuda">Respondiste «No» en las ${categorias().length} categorías. Puedes volver a empezar o elegir
+      directamente entre todas las situaciones que conoce el sistema.</p>
+    <div class="botones-arbol">
+      <button class="boton" data-arbol="todos">Ver todas las situaciones</button>
+      <button class="boton secundario" data-arbol="reiniciar">Volver a empezar</button>
+      <button class="boton secundario" data-arbol="atras">← Atrás</button>
+    </div>`;
+  caja.querySelector('[data-arbol=todos]').addEventListener('click', () => {
+    guardarPaso();
+    estado.arbol.fase = 'todos';
+    estado.sintomas.clear();
+    pintarArbol();
+  });
+  caja.querySelector('[data-arbol=reiniciar]').addEventListener('click', reiniciarArbol);
+  caja.querySelector('[data-arbol=atras]').addEventListener('click', atrasArbol);
+}
+
+function pintarTodas() {
+  const caja = $('#tarjeta-arbol');
+  caja.innerHTML = `
+    <p class="paso">Todas las categorías del árbol</p>
+    <p class="pregunta-texto">¿Qué ocurre con el equipo?</p>
     <p class="ayuda">Marca una o más situaciones. Con ellas el motor de inferencia empieza a razonar.</p>
     <div class="ramas">
-      ${lista.map((cat) => cat.ramas.map((r) => `
+      ${categorias().map((cat) => cat.ramas.map((r) => `
         <section class="rama">
           <header><span class="codigo">${esc(r.codigo)}</span><b>${esc(mayuscula(r.nombre))}</b></header>
           ${r.sintomas.map((s) => `
@@ -267,7 +474,6 @@ function pintarRamas(lista) {
     <div class="pie-arbol">
       <span class="ayuda" id="resumen-sintomas"></span>
       <button class="boton secundario" data-arbol="atras">← Atrás</button>
-      ${todas ? '' : `<button class="boton secundario" data-arbol="ninguna">Ninguna de estas${siguiente ? ` · seguir con ${esc(siguiente.codigo)}` : ''}</button>`}
       <button class="boton" id="boton-iniciar" disabled>Iniciar diagnóstico →</button>
     </div>`;
   caja.querySelectorAll('input[type=checkbox]').forEach((chk) => chk.addEventListener('change', () => {
@@ -276,38 +482,14 @@ function pintarRamas(lista) {
     resumirSintomas();
   }));
   caja.querySelector('[data-arbol=atras]').addEventListener('click', atrasArbol);
-  const ninguna = caja.querySelector('[data-arbol=ninguna]');
-  if (ninguna) {
-    ninguna.addEventListener('click', () => {
-      a.respuestas[c.codigo] = 'no';
-      if (siguiente) { a.indice += 1; a.fase = 'categoria'; } else { a.fase = 'ninguna'; }
-      estado.sintomas.clear();
-      pintarArbol();
-    });
-  }
-  $('#boton-iniciar').addEventListener('click', iniciar);
-  resumirSintomas();
-}
-
-function pintarNinguna() {
-  const caja = $('#tarjeta-arbol');
-  caja.innerHTML = `
-    <p class="paso">Fin del árbol de decisión</p>
-    <p class="pregunta-texto">La falla no coincide con ninguna categoría</p>
-    <p class="ayuda">Respondiste «No» a las ${categorias().length} categorías. Puedes volver a empezar o elegir
-      directamente entre todas las situaciones que conoce el sistema.</p>
-    <div class="botones-arbol">
-      <button class="boton" data-arbol="todos">Ver todas las situaciones</button>
-      <button class="boton secundario" data-arbol="reiniciar">Volver a empezar</button>
-      <button class="boton secundario" data-arbol="atras">← Atrás</button>
-    </div>`;
-  caja.querySelector('[data-arbol=todos]').addEventListener('click', () => {
-    estado.arbol.fase = 'todos';
-    estado.sintomas.clear();
-    pintarArbol();
+  $('#boton-iniciar').addEventListener('click', () => {
+    guardarPaso();
+    estado.respuestasArbol = [];
+    estado.hoja = null;
+    estado.arbol.fase = 'motor';
+    iniciar(null);
   });
-  caja.querySelector('[data-arbol=reiniciar]').addEventListener('click', reiniciarArbol);
-  caja.querySelector('[data-arbol=atras]').addEventListener('click', atrasArbol);
+  resumirSintomas();
 }
 
 function resumirSintomas() {
@@ -322,13 +504,20 @@ function resumirSintomas() {
   }
 }
 
+// Vuelve al árbol desde la consulta: a la última pregunta respondida, para poder cambiarla.
+function volverAlArbol() {
+  estado.respuestas = [];
+  estado.sesion = null;
+  if (estado.arbol.fase === 'motor') atrasArbol(); else pintarArbol();
+  mostrarEtapa('arbol');
+}
+
 // ================================================================ consulta
 function cuerpoConsulta() {
   return {
-    nombre: estado.nombre,
     categoria: estado.categoria || undefined,
     sintomas: [...estado.sintomas],
-    respuestas: estado.respuestas,
+    respuestas: [...estado.respuestasArbol, ...estado.respuestas],
   };
 }
 
@@ -338,16 +527,18 @@ async function diagnosticar() {
   pintarConsulta();
 }
 
-async function iniciar() {
+async function iniciar(categoria) {
   if (!estado.sintomas.size) return;
-  const a = estado.arbol;
-  estado.categoria = a.fase === 'ramas' ? categorias()[a.indice].codigo : null;
+  estado.categoria = categoria || null;
   estado.respuestas = [];
   estado.origen = 'nueva';
   try {
     await diagnosticar();
     mostrarEtapa('consulta');
-  } catch (e) { aviso(e.message, true); }
+  } catch (e) {
+    aviso(e.message, true);
+    atrasArbol();
+  }
 }
 
 async function responder(codigo) {
@@ -376,10 +567,11 @@ function nombreCategoria(codigo) {
 function pintarConsulta() {
   const s = estado.sesion;
   $('#subtitulo-consulta').textContent = `${estado.categoria ? `${nombreCategoria(estado.categoria)} · ` : ''}`
-    + `${estado.sintomas.size} síntoma(s) inicial(es) · ${s.preguntas_respondidas} pregunta(s) respondida(s) · `
+    + `${estado.respuestas.length} pregunta(s) del motor respondida(s) · `
     + `${s.diferencial} hipótesis y ${s.reglas_en_memoria} reglas en el diagnóstico diferencial`;
   $('#boton-deshacer').disabled = estado.respuestas.length === 0;
   pintarPregunta();
+  pintarHoja();
   pintarRespuestas();
   pintarBarras($('#barras-vivo'), s.top);
   $('#resumen-diferencial').textContent = `Las ${s.top.length} hipótesis con mayor peso entre las ${s.diferencial} del diagnóstico diferencial.`;
@@ -402,11 +594,14 @@ function pintarPregunta() {
     caja.querySelectorAll('[data-accion=resultado]').forEach((b) => b.addEventListener('click', verResultado));
     return;
   }
-  const avance = Math.min(100, (s.preguntas_respondidas / s.maximo_preguntas) * 100);
+  // las respuestas «No» del árbol cuentan para el máximo del motor, pero no se numeran como preguntas del motor
+  const delArbol = s.preguntas_respondidas - estado.respuestas.length;
+  const maximo = Math.max(1, s.maximo_preguntas - Math.max(0, delArbol));
+  const avance = Math.min(100, (estado.respuestas.length / maximo) * 100);
   const tipo = q.evidencia.tipo === 'SINTOMA' ? 'síntoma' : 'prueba';
   html += `
-    <div class="pregunta-numero"><span>Pregunta ${q.numero}${s.motivo_conclusion ? ' (opcional)' : ''}</span>
-      <span>${s.preguntas_respondidas} de ${s.maximo_preguntas} como máximo</span></div>
+    <div class="pregunta-numero"><span>Pregunta ${estado.respuestas.length + 1} del motor${s.motivo_conclusion ? ' (opcional)' : ''}</span>
+      <span>${estado.respuestas.length} de ${maximo} como máximo</span></div>
     <div class="progreso"><span style="width:${avance}%"></span></div>
     <p class="pregunta-texto">${esc(q.evidencia.pregunta)}</p>
     <p class="pregunta-meta">${esc(q.evidencia.codigo)} · ${tipo} · aparece en ${q.reglas.length} regla(s) · ganancia esperada ${fmtNum(q.ganancia, 3)} bits</p>
@@ -431,12 +626,32 @@ function colorEscala(codigo) {
   return o ? o.color : '#8A94A6';
 }
 
+// Hasta dónde llegó el recorrido del árbol y qué causas propone la figura para esa hoja.
+function pintarHoja() {
+  const caja = $('#tarjeta-hoja');
+  const h = estado.hoja;
+  caja.hidden = !h;
+  if (!h) return;
+  caja.innerHTML = `
+    <h2>Recorrido del árbol de decisión</h2>
+    <ol class="camino">
+      <li class="si" style="--nivel:0"><span>¿La falla tiene que ver con ${esc(minuscula(h.categoria.nombre))}?</span><b>Sí</b></li>
+      ${h.pasos.map((p) => `<li class="${p.si ? 'si' : 'no'}" style="--nivel:${p.nivel + 1}"><span>${esc(p.pregunta)}</span>
+        <b>${p.si ? 'Sí' : 'No'}</b></li>`).join('')}
+    </ol>
+    <p class="ayuda">Posibles causas según el árbol (el motor les asigna el peso con tus respuestas):</p>
+    <ul class="causas-hoja">${h.causas.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>`;
+}
+
 function pintarRespuestas() {
   const lista = $('#lista-respuestas');
   const rs = estado.sesion.respuestas;
+  const delArbol = new Set(estado.respuestasArbol.map((r) => r.evidencia_id));
+  const origen = (r) => (r.origen === 'SINTOMA_INICIAL' ? (estado.hoja ? ' · árbol: Sí' : ' · síntoma inicial')
+    : delArbol.has(r.evidencia.id) ? ' · árbol: No' : '');
   lista.innerHTML = rs.length ? rs.map((r) => `
     <li><span class="n">${r.orden}</span>
-      <span class="t">${esc(mayuscula(r.evidencia.enunciado))} <span class="etiqueta-origen">· ${esc(r.evidencia.codigo)}${r.origen === 'SINTOMA_INICIAL' ? ' · síntoma inicial' : ''}</span></span>
+      <span class="t">${esc(mayuscula(r.evidencia.enunciado))} <span class="etiqueta-origen">· ${esc(r.evidencia.codigo)}${origen(r)}</span></span>
       <span class="etiqueta-respuesta" style="--c:${esc(colorEscala(r.escala))}">${esc(r.etiqueta)}</span></li>`).join('')
     : '<li class="vacio">Sin respuestas.</li>';
   lista.scrollTop = lista.scrollHeight;
@@ -505,7 +720,7 @@ function verResultado() {
 async function guardarConsulta() {
   try {
     estado.sesion = await ocupado(api('/consultas', { method: 'POST', body: cuerpoConsulta() }));
-    aviso(`Diagnóstico #${estado.sesion.consulta_id} guardado a nombre de ${estado.nombre}.`);
+    aviso(`Diagnóstico #${estado.sesion.consulta_id} guardado a nombre de ${estado.usuario.nombre}.`);
     pintarResultado();
   } catch (e) { aviso(e.message, true); }
 }
@@ -698,11 +913,10 @@ function pintarEvidencias() {
 async function cargarHistorial() {
   const tabla = $('#tabla-historial');
   tabla.innerHTML = '<tr><td class="cargando">Cargando…</td></tr>';
-  const soloMios = $('#solo-mios').checked;
   try {
-    const { consultas } = await api(`/consultas${soloMios ? `?nombre=${encodeURIComponent(estado.nombre)}` : ''}`);
+    const { consultas } = await api('/consultas');
     if (!consultas.length) {
-      tabla.innerHTML = `<tr><td class="vacio">${soloMios ? `Todavía no hay diagnósticos guardados a nombre de ${esc(estado.nombre)}.` : 'Todavía no hay diagnósticos guardados.'}</td></tr>`;
+      tabla.innerHTML = '<tr><td class="vacio">Todavía no has guardado diagnósticos con tu cuenta.</td></tr>';
       return;
     }
     tabla.innerHTML = `<thead><tr><th>#</th><th>Fecha</th><th>Consultó</th><th>Categoría</th><th>Estado</th><th>Preguntas</th><th>Hipótesis principal</th><th>Peso</th></tr></thead>
@@ -718,6 +932,8 @@ async function cargarHistorial() {
 
 async function abrirConsulta(id) {
   try {
+    estado.hoja = null;
+    estado.respuestasArbol = [];
     estado.sesion = await ocupado(api(`/consultas/${id}`));
     estado.origen = 'historial';
     estado.seleccion = 0;
@@ -741,34 +957,42 @@ async function pintarServicio() {
     if (p) filas.push(['Parámetros del motor', `β = ${p.beta} · umbral ${fmtPct(p.umbral_probabilidad, 0)} · máx. ${p.max_preguntas} preguntas · top ${p.hipotesis_resultado}`]);
     dl.innerHTML = filas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
     $('#tabla-rutas').innerHTML = `<thead><tr><th>Método</th><th>Ruta</th><th>Qué hace</th></tr></thead><tbody>${s.rutas.map((r) => `<tr>
-      <td><span class="metodo ${r.metodo.toLowerCase()}">${r.metodo}</span></td><td><code>${esc(r.ruta)}</code></td>
+      <td><span class="metodo ${r.metodo.toLowerCase()}">${r.metodo}</span></td><td><code>${esc(r.ruta)}</code>${r.requiere_sesion ? '<span class="metodo-candado" title="Requiere sesión">🔒</span>' : ''}</td>
       <td>${esc(r.descripcion)}</td></tr>`).join('')}</tbody>`;
   } catch (e) {
     dl.innerHTML = `<dt>Estado</dt><dd style="color:var(--peligro)">${esc(e.message)}</dd><dt>URL de la API</dt><dd>${esc(url)}/api</dd>`;
   }
-  const ejemplo = { nombre: estado.nombre || 'Ana', categoria: estado.categoria || 'A',
+  const ejemplo = { categoria: estado.categoria || 'A',
     sintomas: estado.sintomas.size ? [...estado.sintomas] : [1], respuestas: estado.respuestas };
-  $('#ejemplo-peticion').textContent = `curl -X POST ${url}/api/diagnostico \\
+  $('#ejemplo-peticion').textContent = `# 1) Iniciar sesión: la respuesta trae el token en _sesion.token
+curl -X POST ${url}/api/auth/ingresar \\
   -H "Content-Type: application/json" \\
+  -d '{"correo": "usuario@sedati.example", "contrasena": "Sedati2026*"}'
+
+# 2) Diagnosticar con el token
+curl -X POST ${url}/api/diagnostico \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <token>" \\
   -d '${JSON.stringify(ejemplo)}'`;
 }
 
 // ================================================================ eventos
 document.querySelectorAll('.pestana').forEach((b) => b.addEventListener('click', () => mostrarVista(b.dataset.vista)));
-$('#form-nombre').addEventListener('submit', entrar);
-$('#boton-cambiar-nombre').addEventListener('click', pedirNombre);
+$('#form-ingresar').addEventListener('submit', ingresar);
+$('#form-registro').addEventListener('submit', registrarse);
+document.querySelectorAll('.selector-acceso [data-modo]').forEach((b) => b.addEventListener('click', () => modoAcceso(b.dataset.modo)));
+$('#boton-salir').addEventListener('click', () => {
+  if (!estado.respuestas.length || confirm('Hay una consulta en curso sin guardar. ¿Cerrar sesión de todos modos?')) {
+    cerrarSesion();
+    aviso('Sesión cerrada.');
+  }
+});
 $('#boton-deshacer').addEventListener('click', deshacer);
 $('#boton-ver-resultado').addEventListener('click', verResultado);
 $('#boton-cancelar').addEventListener('click', () => {
-  if (!estado.respuestas.length || confirm('¿Descartar la consulta en curso?')) {
-    estado.respuestas = [];
-    estado.sesion = null;
-    pintarArbol();
-    mostrarEtapa('arbol');
-  }
+  if (!estado.respuestas.length || confirm('Se descartarán las respuestas dadas al motor. ¿Volver al árbol?')) volverAlArbol();
 });
 $('#boton-recargar-historial').addEventListener('click', cargarHistorial);
-$('#solo-mios').addEventListener('change', cargarHistorial);
 $('#filtro-hipotesis').addEventListener('input', pintarHipotesis);
 $('#filtro-evidencias').addEventListener('input', pintarEvidencias);
 $('#plegable-evidencias').addEventListener('toggle', (e) => { if (e.target.open) cargarEvidencias(); });
@@ -776,10 +1000,13 @@ $('#plegable-evidencias').addEventListener('toggle', (e) => { if (e.target.open)
 document.addEventListener('keydown', (e) => {
   if (!$('#vista-diagnostico').classList.contains('activa')) return;
   if (e.target.matches('input, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
-  if ($('#etapa-arbol').classList.contains('activa') && estado.arbol.fase === 'categoria' && estado.catalogo) {
+  const fase = estado.arbol && estado.arbol.fase;
+  if ($('#etapa-arbol').classList.contains('activa') && (fase === 'categoria' || fase === 'nodo') && estado.catalogo) {
+    if (document.body.classList.contains('ocupado')) return;
     const tecla = e.key.toLowerCase();
-    if (tecla === 's') { e.preventDefault(); responderCategoria(true); }
-    if (tecla === 'n') { e.preventDefault(); responderCategoria(false); }
+    const responderArbol = fase === 'categoria' ? responderCategoria : responderNodo;
+    if (tecla === 's') { e.preventDefault(); responderArbol(true); }
+    if (tecla === 'n') { e.preventDefault(); responderArbol(false); }
     return;
   }
   if (!$('#etapa-consulta').classList.contains('activa')) return;
@@ -788,6 +1015,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ================================================================ arranque
-fijarNombre(nombreGuardado());
-mostrarVista(estado.nombre ? 'diagnostico' : 'bienvenida');
+estado.arbol = arbolNuevo();
+fijarUsuario(null);
+mostrarVista('bienvenida');
+restaurarSesion();
 cargarCatalogo();
